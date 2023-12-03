@@ -3,31 +3,34 @@
 rows = ARGF.each_line.map do |line|
     line.chomp
 end
-$rows = rows
+MAX_X = rows.first.length - 1
+MAX_Y = rows.length - 1
 
-Digit = Struct.new(:x, :y, :string, keyword_init: true) do
-    def coords
-        (0...string.length).map do |x_offset|
-            [x + x_offset, y]
+Coord = Struct.new(:x, :y) do
+    def adjacent
+        Enumerator.new do |yielder|
+            yielder << Coord.new(x-1, y) if x > 0
+            yielder << Coord.new(x+1, y) if x < MAX_X
+            yielder << Coord.new(x, y-1) if y > 0
+            yielder << Coord.new(x, y+1) if y < MAX_Y
+            yielder << Coord.new(x-1, y+1) if x > 0 && y < MAX_Y
+            yielder << Coord.new(x+1, y-1) if x < MAX_Y && y > 0
+            yielder << Coord.new(x+1, y+1) if x < MAX_X && y < MAX_Y
+            yielder << Coord.new(x-1, y-1) if x > 0 && y > 0
         end
     end
 end
 
-def adjacent(x, y)
-    [
-        [x-1, y],
-        [x+1, y],
-        [x, y-1],
-        [x, y+1],
-        [x-1, y+1],
-        [x+1, y-1],
-        [x+1, y+1],
-        [x-1, y-1],
-    ].filter { |x, y| in_range(x,y) }
-end
+Digit = Struct.new(:start, :string, keyword_init: true) do
+    def coords
+        (0...string.length).map do |x_offset|
+            Coord.new(start.x + x_offset, start.y)
+        end
+    end
 
-def in_range(x, y)
-    y >= 0 && y < $rows.length && x >= 0 && x < $rows.first.length
+    def value
+        string.to_i
+    end
 end
 
 digits = []
@@ -36,12 +39,12 @@ rows.each_with_index do |row,y|
     digit = nil
     row.chars.each_with_index do |c,x|
         if c == "*"
-            asterisks << [x, y]
+            asterisks << Coord.new(x, y)
         end
 
         if c.match /\d/
             if !digit
-                digit = Digit.new(x: x, y: y, string: "")
+                digit = Digit.new(start: Coord.new(x, y), string: "")
                 digits << digit
             end
             digit.string += c
@@ -52,12 +55,10 @@ rows.each_with_index do |row,y|
 end
 
 gears = []
-asterisks.each do |x, y|
+asterisks.each do |asterisk|
     adjacent_digits = digits.filter do |digit|
-        digit.coords.any? do |dx, dy|
-            adjacent(dx, dy).any? do |dx, dy|
-                dx == x && dy == y
-            end
+        digit.coords.any? do |coord|
+            coord.adjacent.include?(asterisk)
         end
     end
 
@@ -67,5 +68,5 @@ asterisks.each do |x, y|
 end
 
 gears.map do |digits|
-    digits.map(&:string).map(&:to_i).reduce(&:*)
+    digits.map(&:value).reduce(&:*)
 end.sum.then { |result| puts result }
