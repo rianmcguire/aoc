@@ -1,6 +1,11 @@
 #!/usr/bin/env ruby
 
-require 'multi_range'
+require 'bundler/inline'
+
+gemfile do
+  source 'https://rubygems.org'
+  gem 'multi_range', '2.2.1', require: true
+end
 
 seeds, *maps = ARGF.read.split("\n\n")
 
