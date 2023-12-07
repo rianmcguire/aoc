@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-CARD_STRENGTH = %(A K Q J T 9 8 7 6 5 4 3 2).reverse
+CARD_STRENGTH = %w(A K Q J T 9 8 7 6 5 4 3 2).reverse
 
 Hand = Struct.new(:cards, :bid, keyword_init: true) do
     include Comparable

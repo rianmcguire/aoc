@@ -34,17 +34,13 @@ Hand = Struct.new(:cards, :bid, keyword_init: true) do
 
     def type
         j_indexes = cards.chars.each_with_index.filter { |c, index| c == "J" }.map(&:last)
-        if j_indexes.any?
-            CARD_STRENGTH.repeated_combination(j_indexes.length).map do |replacements|
-                modified = cards.dup
-                replacements.zip(j_indexes).each do |r, i|
-                    modified[i] = r
-                end
-                modified
-            end.map { score(_1) }.max
-        else
-            score(cards)
-        end
+        CARD_STRENGTH.repeated_combination(j_indexes.length).map do |replacements|
+            modified = cards.dup
+            replacements.zip(j_indexes).each do |r, i|
+                modified[i] = r
+            end
+            modified
+        end.map { score(_1) }.max
     end
 
     def card_strengths
