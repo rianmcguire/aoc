@@ -1,21 +1,23 @@
 #!/usr/bin/env ruby
 
-copies = Hash.new { |h,k| h[k] = 1}
-
 cards = ARGF.each_line.to_a
 
-cards.each_with_index do |line, index|
-    index = index + 1
+# Track the numbers of copies of each card
+copies = Array.new(cards.length, 1)
+
+cards.each_with_index do |line, card_index|
+    # Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
     card, all_numbers = line.chomp.split ":"
     winning, own = all_numbers.split(" | ")
     winning = winning.split(" ")
     own = own.split(" ")
 
-    count = (winning & own).length
+    matches = (winning & own).length
 
-    ((index + 1)..(index + count)).each do |i|
-        copies[i] += copies[index]
+    # You win copies of the scratchcards below the winning card equal to the number of matches
+    ((card_index + 1)..(card_index + matches)).each do |i|
+        copies[i] += copies[card_index]
     end
 end
 
-puts copies.values.sum
+puts copies.sum
