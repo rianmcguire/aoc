@@ -7,7 +7,7 @@ instr, network = ARGF.read.split("\n\n")
 
 network.each_line do |line|
     id, rest = line.chomp.split(" = ")
-    left, right = rest.match(/\((...), (...)\)/)[1..]
+    left, right = rest.scan(/\w+/)
 
     nodes[id] = Node.new(id, left, right)
 end

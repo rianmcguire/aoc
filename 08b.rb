@@ -7,23 +7,18 @@ instr, network = ARGF.read.split("\n\n")
 
 network.each_line do |line|
     id, rest = line.chomp.split(" = ")
-    left, right = rest.match(/\((...), (...)\)/)[1..]
+    left, right = rest.scan(/\w+/)
 
     nodes[id] = Node.new(id, left, right)
 end
 
-currents = nodes.filter { |k,v| k.end_with?("A") }.map(&:last)
-last_z = Array.new(currents.length, nil)
+currents = nodes.values.filter {  _1.id.end_with?("A") }
 periods = Array.new(currents.length, nil)
-
 i = 0
 loop do
     currents.each_with_index do |current, index|
         if current.id.end_with?("Z")
-            if last_z[index]
-                periods[index] = i - last_z[index]
-            end
-            last_z[index] = i
+            periods[index] = i
         end
     end
 
