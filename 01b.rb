@@ -1,19 +1,16 @@
 #!/usr/bin/env ruby
 
-words = %w(one two three four five six seven eight nine)
+DIGITS = %w(zero one two three four five six seven eight nine)
 
 result = ARGF.each_line.map do |line|
+    # Use postive lookahead so we match both "five" and "eight" in a string like "fiveight" instead of
+    # just "five" -- "eight" is considered the last digit.
     digits = line.scan(/(?=(\d|one|two|three|four|five|six|seven|eight|nine))/).flatten
     digits.map! do |d|
-        if i = words.index(d)
-            i + 1
-        else
-            d
-        end
+        DIGITS.index(d) || d
     end
 
     "#{digits.first}#{digits.last}".to_i
 end.sum
 
 puts result
-

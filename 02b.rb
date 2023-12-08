@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
-
+# Calculate the minimum number of cubes of each color to make a game possible, which is the maximum number seen
+# for each color
 def minimum(rounds)
     max = Hash.new {|h,k| h[k] = 0}
 
@@ -18,13 +19,13 @@ def minimum(rounds)
     max
 end
 
+# The power of a set of cubes is equal to the numbers of red, green, and blue cubes multiplied together
 def power(set)
     set.values.reduce(:*)
 end
 
 ARGF.each_line.map do |line|
-    game, rounds = line.split ":"
-    _, id = game.split " "
+    _, rounds = line.split ":"
 
     power(minimum(rounds))
-end.sum.then {|result| puts result }
+end.sum.then { puts _1 }

@@ -7,6 +7,7 @@ MAX_X = rows.first.length - 1
 MAX_Y = rows.length - 1
 
 Coord = Struct.new(:x, :y) do
+    # All valid adjacent coords (including diagonals)
     def adjacent
         Enumerator.new do |yielder|
             yielder << Coord.new(x-1, y) if x > 0
@@ -22,6 +23,7 @@ Coord = Struct.new(:x, :y) do
 end
 
 Digit = Struct.new(:start, :string, keyword_init: true) do
+    # All the coodinates containing the digit string
     def coords
         (0...string.length).map do |x_offset|
             Coord.new(start.x + x_offset, start.y)
@@ -33,6 +35,7 @@ Digit = Struct.new(:start, :string, keyword_init: true) do
     end
 end
 
+# Parse digits ("part numbers") into Digit structs with starting location and string value
 digits = []
 rows.each_with_index do |row,y|
     digit = nil
@@ -50,9 +53,10 @@ rows.each_with_index do |row,y|
 end
 
 digits.filter do |digit|
+    # Find all digits where any of the coodinates are adjacent to a non-digit, non-"." character
     digit.coords.any? do |coord|
         coord.adjacent.any? do |coord|
             rows[coord.y][coord.x].match(/[^\.\d]/)
         end
     end
-end.map(&:value).sum.then { |r| puts r }
+end.map(&:value).sum.then { puts _1 }

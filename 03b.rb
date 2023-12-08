@@ -7,6 +7,7 @@ MAX_X = rows.first.length - 1
 MAX_Y = rows.length - 1
 
 Coord = Struct.new(:x, :y) do
+    # All valid adjacent coords (including diagonals)
     def adjacent
         Enumerator.new do |yielder|
             yielder << Coord.new(x-1, y) if x > 0
@@ -33,7 +34,9 @@ Digit = Struct.new(:start, :string, keyword_init: true) do
     end
 end
 
+# Parse digits ("part numbers") into Digit structs with starting location and string value
 digits = []
+# Also track the coodinates of any "*" characters ("gears")
 asterisks = []
 rows.each_with_index do |row,y|
     digit = nil
@@ -54,7 +57,11 @@ rows.each_with_index do |row,y|
     end
 end
 
-gears = []
+# A gear is any * symbol that is adjacent to exactly two part numbers. Its gear ratio is the result of multiplying
+# those two numbers together.
+#
+# Check each asterisk to see if it's adjacent to exactly 2 digits
+ratios = []
 asterisks.each do |asterisk|
     adjacent_digits = digits.filter do |digit|
         digit.coords.any? do |coord|
@@ -63,10 +70,8 @@ asterisks.each do |asterisk|
     end
 
     if adjacent_digits.length == 2
-        gears << adjacent_digits
+        ratios << adjacent_digits.map(&:value).reduce(:*)
     end
 end
 
-gears.map do |digits|
-    digits.map(&:value).reduce(&:*)
-end.sum.then { |result| puts result }
+puts ratios.sum
