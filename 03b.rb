@@ -9,23 +9,32 @@ MAX_Y = rows.length - 1
 Coord = Struct.new(:x, :y) do
     # All valid adjacent coords (including diagonals)
     def adjacent
-        Enumerator.new do |yielder|
-            yielder << Coord.new(x-1, y) if x > 0
-            yielder << Coord.new(x+1, y) if x < MAX_X
-            yielder << Coord.new(x, y-1) if y > 0
-            yielder << Coord.new(x, y+1) if y < MAX_Y
-            yielder << Coord.new(x-1, y+1) if x > 0 && y < MAX_Y
-            yielder << Coord.new(x+1, y-1) if x < MAX_Y && y > 0
-            yielder << Coord.new(x+1, y+1) if x < MAX_X && y < MAX_Y
-            yielder << Coord.new(x-1, y-1) if x > 0 && y > 0
+        [].tap do |result|
+            result << Coord.new(x-1, y) if x > 0
+            result << Coord.new(x+1, y) if x < MAX_X
+            result << Coord.new(x, y-1) if y > 0
+            result << Coord.new(x, y+1) if y < MAX_Y
+            result << Coord.new(x-1, y+1) if x > 0 && y < MAX_Y
+            result << Coord.new(x+1, y-1) if x < MAX_Y && y > 0
+            result << Coord.new(x+1, y+1) if x < MAX_X && y < MAX_Y
+            result << Coord.new(x-1, y-1) if x > 0 && y > 0
         end
     end
 end
 
 Digit = Struct.new(:start, :string, keyword_init: true) do
     def coords
-        (0...string.length).map do |x_offset|
+        @coords ||= (0...string.length).map do |x_offset|
             Coord.new(start.x + x_offset, start.y)
+        end
+    end
+
+    # Set of Coords adjacent to the Digit
+    def adjacent
+        @adjacent ||= Set.new.tap do |set|
+            coords.each do |coord|
+                set.merge(coord.adjacent)
+            end
         end
     end
 
@@ -64,9 +73,9 @@ end
 ratios = []
 asterisks.each do |asterisk|
     adjacent_digits = digits.filter do |digit|
-        digit.coords.any? do |coord|
-            coord.adjacent.include?(asterisk)
-        end
+        # This would be faster if it checked the asterisk coords analytically, but enumerating all the adjacent
+        # coordiates is easier to reason about.
+        digit.adjacent.include?(asterisk)
     end
 
     if adjacent_digits.length == 2
