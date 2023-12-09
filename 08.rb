@@ -1,30 +1,37 @@
 #!/usr/bin/env ruby
 
-nodes = {}
-Node = Struct.new(:id, :left, :right)
+instr, network_string = ARGF.read.split("\n\n")
 
-instr, network = ARGF.read.split("\n\n")
-
-network.each_line do |line|
-    id, rest = line.chomp.split(" = ")
-    left, right = rest.scan(/\w+/)
-
-    nodes[id] = Node.new(id, left, right)
+Node = Struct.new(:id, :left, :right) do
+    def step(dir)
+        if dir == "L"
+            left
+        else
+            right
+        end
+    end
 end
 
-current = nodes["AAA"]
+# Parse the network into a hash of nodes by id
+network = {}
+network_string.each_line do |line|
+    node = Node.new(*line.scan(/\w+/))
+
+    network[node.id] = node
+end
+
+# Start at AAA
+current = network["AAA"]
 i = 0
 loop do
+    # We're finished when we reach ZZZ
     break if current.id == "ZZZ"
 
-    go = instr[i % instr.length]
+    # Get the next instruction
+    dir = instr[i % instr.length]
     i += 1
 
-    if go == "L"
-        current = nodes[current.left]
-    else
-        current = nodes[current.right]
-    end
+    current = network[current.step(dir)]
 end
 
 puts i
