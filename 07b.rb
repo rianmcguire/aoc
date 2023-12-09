@@ -38,7 +38,7 @@ Hand = Struct.new(:cards, :bid_string) do
         # Find location of all jokers
         j_indexes = cards.chars.each_with_index.filter { |c, index| c == "J" }.map(&:last)
 
-        # Try ever possible combination of cards that could replace the jokers, and return the maximum type stength
+        # Try every possible combination of cards that could replace the jokers, and return the maximum type stength
         CARD_STRENGTH.keys.repeated_combination(j_indexes.length).map do |replacements|
             modified = cards.dup
             replacements.zip(j_indexes).each do |r, i|
