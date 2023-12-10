@@ -44,25 +44,28 @@ Cell = Struct.new(:symbol, :pos) do
         when "F"
             [:e, :s]
         when "S"
+            # We don't know what shape start cell is. Infer it from which neighbouring cells join it
             [:n, :e, :s, :w].filter do |dir|
                 neighbour = pos.step(dir)
-                GRID[neighbour.y][neighbour.x].exits.include?(opposite(dir))
+                $grid[neighbour.y][neighbour.x].exits.include?(opposite(dir))
             end
         when "."
             []
         end
     end
 
-    def outside(entered_from)
+    # In which direction(s) is the inside of the loop from this cell, assuming we're travelling anti-clockwise
+    # ie. which direction(s) are to the left-hand side when travelling anti-clockwise?
+    def inside(entered_from)
         return [] unless entered_from
 
         case symbol
         when "|"
             case entered_from
-            when :s
-                [:w]
             when :n
                 [:e]
+            when :s
+                [:w]
             else
                 []
             end
@@ -109,168 +112,97 @@ Cell = Struct.new(:symbol, :pos) do
     end
 end
 
-grid = ARGF.each_line.each_with_index.map do |line, y|
+$grid = ARGF.each_line.each_with_index.map do |line, y|
     line.chomp.chars.each_with_index.map { |s, x| Cell.new(s, Pos.new(x, y)) }
 end
-GRID = grid
 
 def valid_pos(pos)
-    (0...GRID.first.length).include?(pos.x) && (0...GRID.length).include?(pos.y)
+    (0...$grid.first.length).include?(pos.x) && (0...$grid.length).include?(pos.y)
 end
 
-start = grid.flatten.find { |c| c.symbol == "S" }
+start = $grid.flatten.find { |c| c.symbol == "S" }
 
-def bfs(source:, adjacent_fn:, target_fn:)
-    to_explore = [source]
-    explored = Set.new([source])
-    parent = {}
+def walk(start, reverse)
+    cell, entered_from = start, start.exits[reverse ? 1 : 0]
+    loop do
+        yield cell, entered_from
 
-    while to_explore.any?
-      node = to_explore.shift
-      if target_fn.call(node)
-        path = []
-        while node
-          path.unshift node
-          node = parent[node]
-        end
-        return path
-      end
+        # Exit out the direction we didn't enter from
+        exit_dir = (cell.exits - [entered_from]).first
+        new_pos = cell.pos.step(exit_dir)
+        cell = $grid[new_pos.y][new_pos.x]
+        entered_from = opposite(exit_dir)
 
-      adjacent_fn.call(node).each do |child|
-        if explored.add?(child)
-          parent[child] = node
-          to_explore << child
-        end
-      end
+        # We've reached the start again
+        break if cell.symbol == "S"
     end
-
-    path = []
-    while node
-        path.unshift node
-        node = parent[node]
-    end
-    return path
 end
 
-loop_cells = Set.new
-path = bfs(
-  source: start,
-  adjacent_fn: proc do |node|
-    node.exits.map do |dir|
-        new_pos = node.pos.step(dir)
-        GRID[new_pos.y][new_pos.x]
-    end
-  end,
-  target_fn: ->(node) { loop_cells << node; false },
-)
-LOOP_CELLS = loop_cells
+# Walk the loop
+path = []
+walk(start, false) do |cell, entered_from|
+    path << cell
+end
+$loop = Set.new(path)
 
-OUTSIDE = Set.new
-def flood(node)
-    stack = [node]
+# Determine if the walk we did was clockwise or anti-clockwise
+# https://en.wikipedia.org/wiki/Curve_orientation#Practical_considerations
 
-    while !stack.empty?
-        node = stack.pop
+# Select a vertex on the convex hull of the polygon: "A common choice is the vertex of the polygon with the smallest
+# X-coordinate. If there are several of them, the one with the smallest Y-coordinate is picked."
+b_index = path.each_with_index.sort_by { |cell, i| [cell.pos.x, cell.pos.y] }.first.last
 
-        next if OUTSIDE.include?(node) || LOOP_CELLS.include?(node)
+# Determine the sign of the angle ABC, where A and C are the vertices before/after the one we selected
+a = path[b_index - 1].pos
+b = path[b_index].pos
+c = path[b_index + 1].pos
+determinant = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)
 
-        OUTSIDE << node
+# We need to walk in the anti-clockwise direction so the inside is always on our "left" - reverse if needed
+reverse = determinant > 0
+
+# Flood fill from every inside node reachable from the loop
+$inside = Set.new
+def flood(cell)
+    stack = [cell]
+
+    until stack.empty?
+        cell = stack.pop
+
+        # Fill all reachable cells, except if they're already filled, or they're part of the loop
+        next if $inside.include?(cell) || $loop.include?(cell)
+
+        $inside << cell
 
         [:n, :e, :s, :w].each do |dir|
-            new_pos = node.pos.step(dir)
+            new_pos = cell.pos.step(dir)
             next unless valid_pos(new_pos)
-            new_node = GRID[new_pos.y][new_pos.x]
+            new_cell = $grid[new_pos.y][new_pos.x]
 
-            stack << new_node
+            stack << new_cell
         end
     end
 end
+walk(start, reverse) do |cell, entered_from|
+    cell.inside(entered_from).each do |dir|
+        new_pos = cell.pos.step(dir)
+        next unless valid_pos(new_pos)
+        flood($grid[new_pos.y][new_pos.x])
+    end
+end
 
-def dump
-    GRID.each do |row|
-        row.each do |cell|
-            if OUTSIDE.include?(cell)
-                putc "O"
-            elsif LOOP_CELLS.include?(cell)
-                putc cell.symbol
-            else
-                putc "."
-            end
+$grid.each do |row|
+    row.each do |cell|
+        if $inside.include?(cell)
+            putc "I"
+        elsif $loop.include?(cell)
+            putc cell.symbol
+        else
+            putc "."
         end
-        puts
     end
     puts
 end
-
-dump
-
-
-VISITED = Set.new
-# def walk_and_fill(node, travel_dir)
-
-#     # putc node.symbol
-
-#     return if node.symbol == "S"
-
-#     node.outside(travel_dir).each do |dir|
-#         new_pos = node.pos.step(dir)
-#         next unless valid_pos(new_pos)
-#         new_node = GRID[new_pos.y][new_pos.x]
-
-#         # if new_node.symbol == "."
-#         #     OUTSIDE << new_node
-#         # end
-#         flood(new_node)
-#     end
-
-#     node.exits.each do |dir|
-#         new_pos = node.pos.step(dir)
-#         new_node = GRID[new_pos.y][new_pos.x]
-#         walk_and_fill(new_node, opposite(dir))
-#     end
-
-#     # dump
-# end
-
-
-
-# dump
-
-after_start_pos = start.pos.step(start.exits.first)
-after_start_node = GRID[after_start_pos.y][after_start_pos.x]
-# walk_and_fill(after_start_node, nil)
-
-stack = [[after_start_node, nil]]
-while !stack.empty?
-    node, travel_dir = stack.pop
-
-    next unless VISITED.add?(node)
-
-    # putc node.symbol
-
-    node.outside(travel_dir).each do |dir|
-        new_pos = node.pos.step(dir)
-        next unless valid_pos(new_pos)
-        new_node = GRID[new_pos.y][new_pos.x]
-
-        if new_node.symbol == "."
-            OUTSIDE << new_node
-        end
-        flood(new_node)
-    end
-
-    node.exits.reverse.each do |dir|
-        new_pos = node.pos.step(dir)
-        new_node = GRID[new_pos.y][new_pos.x]
-
-        stack.push([new_node, opposite(dir)])
-    end
-end
-
 puts
 
-dump
-
-
-total_cells = grid.length * grid.first.length
-puts total_cells - OUTSIDE.length - LOOP_CELLS.length
+puts $inside.length
