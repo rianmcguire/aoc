@@ -28,6 +28,20 @@ def opposite(dir)
     end
 end
 
+# Which direction is to the left-hand side?
+def left(dir)
+    case dir
+    when :n
+        :w
+    when :s
+        :e
+    when :e
+        :n
+    when :w
+        :s
+    end
+end
+
 Cell = Struct.new(:symbol, :pos) do
     def exits
         case symbol
@@ -53,63 +67,6 @@ Cell = Struct.new(:symbol, :pos) do
             []
         end
     end
-
-    # In which direction(s) is the inside of the loop from this cell, assuming we're travelling anti-clockwise
-    # ie. which direction(s) are to the left-hand side when travelling anti-clockwise?
-    def inside(entered_from)
-        return [] unless entered_from
-
-        case symbol
-        when "|"
-            case entered_from
-            when :n
-                [:e]
-            when :s
-                [:w]
-            else
-                []
-            end
-        when "-"
-            case entered_from
-            when :e
-                [:s]
-            when :w
-                [:n]
-            else
-                []
-            end
-        when "L"
-            case entered_from
-            when :e
-                [:s, :w]
-            else
-                []
-            end
-        when "J"
-            case entered_from
-            when :n
-                [:e, :s]
-            else
-                []
-            end
-        when "7"
-            case entered_from
-            when :w
-                [:n, :e]
-            else
-                []
-            end
-        when "F"
-            case entered_from
-            when :s
-                [:n, :w]
-            else
-                []
-            end
-        else
-            []
-        end
-    end
 end
 
 $grid = ARGF.each_line.each_with_index.map do |line, y|
@@ -123,15 +80,18 @@ end
 start = $grid.flatten.find { |c| c.symbol == "S" }
 
 def walk(start, reverse)
-    cell, entered_from = start, start.exits[reverse ? 1 : 0]
-    loop do
-        yield cell, entered_from
+    cell = start
+    entry_dir = opposite(start.exits[reverse ? 1 : 0])
 
+    loop do
         # Exit out the direction we didn't enter from
-        exit_dir = (cell.exits - [entered_from]).first
+        exit_dir = (cell.exits - [opposite(entry_dir)]).first
+
+        yield cell, entry_dir, exit_dir
+
         new_pos = cell.pos.step(exit_dir)
         cell = $grid[new_pos.y][new_pos.x]
-        entered_from = opposite(exit_dir)
+        entry_dir = exit_dir
 
         # We've reached the start again
         break if cell.symbol == "S"
@@ -140,7 +100,7 @@ end
 
 # Walk the loop
 path = []
-walk(start, false) do |cell, entered_from|
+walk(start, false) do |cell, entry_dir, exit_dir|
     path << cell
 end
 $loop = Set.new(path)
@@ -158,7 +118,7 @@ b = path[b_index].pos
 c = path[b_index + 1].pos
 determinant = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)
 
-# We need to walk in the anti-clockwise direction so the inside is always on our "left" - reverse if needed
+# We need to walk in the anti-clockwise direction so the inside is always on our left - reverse if needed
 reverse = determinant > 0
 
 # Flood fill from every inside node reachable from the loop
@@ -183,11 +143,12 @@ def flood(cell)
         end
     end
 end
-walk(start, reverse) do |cell, entered_from|
-    cell.inside(entered_from).each do |dir|
-        new_pos = cell.pos.step(dir)
-        next unless valid_pos(new_pos)
-        flood($grid[new_pos.y][new_pos.x])
+walk(start, reverse) do |cell, entry_dir, exit_dir|
+    # In the directions we were travelling on both entry and exit, a cell to the inside is on the left
+    [entry_dir, exit_dir].each do |dir|
+        inside = cell.pos.step(left(dir))
+        next unless valid_pos(inside)
+        flood($grid[inside.y][inside.x])
     end
 end
 
