@@ -5,26 +5,55 @@ Report = Struct.new(:springs, :counts)
 reports = []
 ARGF.each_line do |line|
     springs, counts = line.chomp.split(" ")
-    springs = springs.chars
+
     counts = counts.split(",").map(&:to_i)
 
     reports << Report.new(springs, counts)
 end
 
-def matches_counts(springs, counts)
-    springs.slice_when { |a, b| a != b }.filter { |g| g.all? { _1 == "#" } }.map(&:length) == counts
+def search(springs, counts, memo = {})
+    if memo[[springs, counts]]
+        return memo[[springs, counts]]
+    end
+
+    result = (
+        if springs.start_with?(".")
+            # Skip over leading "." - they don't affect the counts
+            search(springs[1..], counts, memo)
+        elsif springs.empty? && counts.empty?
+            # Base case - we've matched everything!
+            1
+        elsif springs.empty? && !counts.empty?
+            # There are no possible springs left, but there are unmatched counts
+            0
+        elsif (match = springs.match(/^(#+)/)) && (counts.empty? || match[1].length > counts[0])
+            # Leading number of springs is bigger than the expected count - this will never match
+            0
+        elsif (match = springs.match(/^(#+)(\.|$)/))
+            # Matched a complete group - check the size
+            if match[1].length == counts[0]
+                # Matched the first count - trim it off and go deeper
+                search(springs[counts[0]..], counts[1..], memo)
+            else
+                # Group was a different size - this will never match
+                0
+            end
+        elsif unknown_index = springs.index("?")
+            # Explore both options for unknown value
+            [".", "#"].sum do |c|
+                modified = springs.dup
+                modified[unknown_index] = c
+                search(modified, counts, memo)
+            end
+        else
+            raise "WTF: #{springs.inspect} #{counts.inspect}"
+        end
+    )
+
+    memo[[springs, counts]] = result
+    result
 end
 
 reports.map do |report|
-    unknown_indexes = report.springs.each_with_index.filter { |c, i| c == "?" }.map(&:last)
-
-    ["#", "."].repeated_permutation(unknown_indexes.length).map do |replacements|
-        modified = report.springs.dup
-        replacements.zip(unknown_indexes).each do |r, i|
-            modified[i] = r
-        end
-        modified
-    end.filter do |modified|
-        matches_counts(modified, report.counts)
-    end.length
+    search(report.springs, report.counts)
 end.sum.then { puts _1 }
