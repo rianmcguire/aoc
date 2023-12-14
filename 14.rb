@@ -32,14 +32,19 @@ max_x = (rocks + blocks).map(&:x).max
 $max_y = max_y = (rocks + blocks).map(&:y).max
 
 # Compact a 1D stack of rock indexes towards 0
-def compact(rocks, blockers)
+def compact(rocks, blockers, invert)
     result = []
 
     blockers.sort!
-    [-1, *blockers, $max_y + 1].each_cons(2).map { |a, b| Range.new(a + 1, b, true) }.each do |range|
+
+    [-1, *blockers, $max_y + 1].each_cons(2).map { |a, b| Range.new(a + 1, b - 1, false) }.each do |range|
         count = rocks.count { range.include?(_1) }
         count.times do |x|
-            result << range.begin + x
+            if invert
+                result << range.end - x
+            else
+                result << range.begin + x
+            end
         end
     end
 
@@ -52,7 +57,7 @@ end
 
     stack.each { rocks.delete _1 }
 
-    compact(stack.map(&:y), blockers.map(&:y)).each do |y|
+    compact(stack.map(&:y), blockers.map(&:y), false).each do |y|
         rocks << Pos.new(x, y)
     end
 end
