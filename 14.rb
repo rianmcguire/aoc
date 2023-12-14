@@ -29,23 +29,32 @@ ARGF.each_line.each_with_index do |line, y|
 end
 
 max_x = (rocks + blocks).map(&:x).max
-max_y = (rocks + blocks).map(&:y).max
+$max_y = max_y = (rocks + blocks).map(&:y).max
 
-loop do
-    any_moved = false
-    (1..max_y).each do |y|
-        rocks.filter { _1.y == y }.each do |rock|
-            new_rock = rock.step(:n)
+# Compact a 1D stack of rock indexes towards 0
+def compact(rocks, blockers)
+    result = []
 
-            if !rocks.include?(new_rock) && !blocks.include?(new_rock)
-                rocks.delete rock
-                rocks << new_rock
-                any_moved = true
-            end
+    blockers.sort!
+    [-1, *blockers, $max_y + 1].each_cons(2).map { |a, b| Range.new(a + 1, b, true) }.each do |range|
+        count = rocks.count { range.include?(_1) }
+        count.times do |x|
+            result << range.begin + x
         end
     end
 
-    break unless any_moved
+    result
+end
+
+(0..max_x).each do |x|
+    stack = rocks.filter { _1.x == x }
+    blockers = blocks.filter { _1.x == x }
+
+    stack.each { rocks.delete _1 }
+
+    compact(stack.map(&:y), blockers.map(&:y)).each do |y|
+        rocks << Pos.new(x, y)
+    end
 end
 
 (0..max_y).each do |y|
