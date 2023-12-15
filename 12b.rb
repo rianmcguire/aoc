@@ -15,27 +15,37 @@ ARGF.each_line do |line|
     reports << Report.new(springs, counts)
 end
 
+TYPES = [".", "#"]
+
 def search(springs, counts, memo = {})
-    if memo[[springs, counts]]
-        return memo[[springs, counts]]
+    # Skip over leading "." - they don't affect the result
+    while springs.start_with?(".")
+        springs = springs[1..]
     end
 
+    memo_key = [springs, counts]
+    if result = memo[memo_key]
+        return result
+    end
+
+    match = springs.match(/^(#+)(\.|$)?/)
+    leading_springs = match && match[1]&.length
+    # A group of springs is "complete" if it's followed by a gap, or the end of string
+    complete_group = match && match[2]
+
     result = (
-        if springs.start_with?(".")
-            # Skip over leading "." - they don't affect the counts
-            search(springs[1..], counts, memo)
-        elsif springs.empty? && counts.empty?
+        if springs.empty? && counts.empty?
             # Base case - we've matched everything!
             1
         elsif springs.empty? && !counts.empty?
             # There are no possible springs left, but there are unmatched counts
             0
-        elsif (match = springs.match(/^(#+)/)) && (counts.empty? || match[1].length > counts[0])
+        elsif leading_springs && (counts.empty? || leading_springs > counts[0])
             # Leading number of springs is bigger than the expected count - this will never match
             0
-        elsif (match = springs.match(/^(#+)(\.|$)/))
+        elsif complete_group
             # Matched a complete group - check the size
-            if match[1].length == counts[0]
+            if leading_springs == counts[0]
                 # Matched the first count - trim it off and go deeper
                 search(springs[counts[0]..], counts[1..], memo)
             else
@@ -44,7 +54,7 @@ def search(springs, counts, memo = {})
             end
         elsif unknown_index = springs.index("?")
             # Explore both options for unknown value
-            [".", "#"].sum do |c|
+            TYPES.sum do |c|
                 modified = springs.dup
                 modified[unknown_index] = c
                 search(modified, counts, memo)
@@ -54,7 +64,7 @@ def search(springs, counts, memo = {})
         end
     )
 
-    memo[[springs, counts]] = result
+    memo[memo_key] = result
     result
 end
 
