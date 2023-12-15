@@ -5,24 +5,22 @@ def hash_alg(string)
     string.chars.each do |c|
         value += c.ord
         value *= 17
-        value = value % 256
+        value %= 256
     end
     value
 end
 
 Lens = Struct.new(:label, :focal)
 
-boxes = Hash.new { |h,k| h[k] = [] }
+boxes = Array.new(256) { [] }
 ARGF.read.chomp.split(",").each do |step|
     label, focal = *step.split(/[\-=]/)
     box_index = hash_alg(label)
 
     if !focal
-        # Remove
         boxes[box_index].delete_if { _1.label == label } 
     else
         lens = Lens.new(label, focal.to_i)
-        # Add
         if i = boxes[box_index].index { _1.label == lens.label }
             # Replace existing with same label
             boxes[box_index][i] = lens
@@ -33,7 +31,7 @@ ARGF.read.chomp.split(",").each do |step|
     end
 end
 
-boxes.sum do |box_index, box|
+boxes.each_with_index.sum do |box, box_index|
     box.each_with_index.sum do |lens, i|
         (box_index + 1) * (i + 1) * lens.focal
     end
