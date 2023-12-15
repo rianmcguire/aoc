@@ -27,25 +27,36 @@ $max_x = max_x = lines.first.length - 1
 
 $known_states = {}
 
+Rock = Struct.new(:blocker?, :n)
+
 # Compact a 1D stack of rock indexes towards the left or right
 def compact(rocks, blockers, right)
+    objects = [
+        *rocks.map { Rock.new(false, _1) },
+        *blockers.map { Rock.new(true, _1 ) },
+    ].sort_by { _1.n }
+
+    groups = if right
+        objects.slice_after { _1.blocker? }
+    else
+        objects.slice_before { _1.blocker? }
+    end
+
     result = []
-
-    # TODO: pre-sort on load
-    blockers.sort!
-
-    [-1, *blockers, $max_y + 1].each_cons(2).map { |a, b| Range.new(a + 1, b - 1, false) }.each do |range|
-        # TODO: take advantage of rocks being sorted
-        count = rocks.count { range.include?(_1) }
-        count.times do |x|
-            if right
-                result << range.end - x
-            else
-                result << range.begin + x
+    groups.each do |group|
+        count = group.count { !_1.blocker? }
+        if right
+            last_empty = group.filter_map { _1.blocker? && (_1.n - 1) }.first || $max_x
+            count.times do |i|
+                result << last_empty - i
+            end
+        else
+            first_empty = group.filter_map { _1.blocker? && (_1.n + 1) }.last || 0
+            count.times do |i|
+                result << first_empty + i
             end
         end
     end
-
     result
 end
 
@@ -75,7 +86,6 @@ loop do
 
             rocks_by[axis][n] = new_rocks
             new_rocks.each do |j|
-                # TODO: insert sorted
                 rocks_by[opposite_axis][j] << n
             end
         end
