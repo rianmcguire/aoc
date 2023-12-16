@@ -23,7 +23,7 @@ def search(springs, counts, memo = {})
         springs = springs[1..]
     end
 
-    memo_key = [springs, counts]
+    memo_key = [springs, counts.length]
     if result = memo[memo_key]
         return result
     end
