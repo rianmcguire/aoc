@@ -1,20 +1,22 @@
 const std = @import("std");
 
 pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const allocator = arena.allocator();
+
     const stdin = std.io.getStdIn().reader();
 
     var sum: u64 = 0;
 
     var buf: [128]u8 = undefined;
     while (try stdin.readUntilDelimiterOrEof(&buf, '\n')) |line| {
-        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        const allocator = arena.allocator();
-
         var it = std.mem.splitScalar(u8, line, ' ');
-        const springs = it.first();
-        const counts_str = it.rest();
+        const springs_orig = it.first();
+        const counts_str_orig = it.rest();
 
-        // TODO: unfold
+        // Unfold
+        const springs = try std.fmt.allocPrint(allocator, "{s}?{s}?{s}?{s}?{s}", .{ springs_orig, springs_orig, springs_orig, springs_orig, springs_orig });
+        const counts_str = try std.fmt.allocPrint(allocator, "{s},{s},{s},{s},{s}", .{ counts_str_orig, counts_str_orig, counts_str_orig, counts_str_orig, counts_str_orig });
 
         var counts = std.ArrayList(u8).init(allocator);
         var counts_str_it = std.mem.splitScalar(u8, counts_str, ',');
@@ -22,62 +24,58 @@ pub fn main() !void {
             try counts.append(try std.fmt.parseInt(u8, count_str, 10));
         }
 
-        std.debug.print("{s} {d}\n", .{ springs, counts.items.len });
-
         sum += search(springs, counts.items);
+
+        _ = arena.reset(.retain_capacity);
     }
 
     std.debug.print("{d}\n", .{sum});
 }
 
 pub fn search(springs: []const u8, counts: []const u8) u64 {
-    if (springs[0] == '.') {
+    if (springs.len > 0 and springs[0] == '.') {
         return search(springs[1..], counts);
     }
 
     // TODO: memoization
 
-    const leading_springs: usize = for (springs, 0..) |s, i| {
-        if (s != '#') break i;
-    } else {
-        0
-    };
-    const complete_group = leading_springs > 0 and (springs.len == 0 or springs[0] == '.');
+    var leading_springs: usize = 0;
+    for (springs, 0..) |s, i| {
+        if (s != '#') break;
+        leading_springs = i + 1;
+    }
+    const complete_group = leading_springs > 0 and (leading_springs > springs.len - 1 or springs[leading_springs] == '.');
 
-    const result = if (springs.len == 0 and counts.len == 0) {
-        0;
+    var result: u64 = undefined;
+    if (springs.len == 0 and counts.len == 0) {
+        result = 1;
     } else if (springs.len == 0 and counts.len > 0) {
-        0;
+        result = 0;
+    } else if (leading_springs > 0 and (counts.len == 0 or leading_springs > counts[0])) {
+        result = 0;
     } else if (complete_group) {
         if (leading_springs == counts[0]) {
-            search(springs[counts[0]..], counts[1..]);
+            result = search(springs[counts[0]..], counts[1..]);
         } else {
-            0;
+            result = 0;
         }
     } else {
         const unknown_idx = for (springs, 0..) |s, i| {
             if (s == '?') break i;
         } else {
-            std.debug.panic("wtf", .{});
+            std.debug.panic("wtf: {s}", .{springs});
         };
 
         var with_working: [128]u8 = undefined;
-        std.mem.copy(u8, with_working, springs);
+        std.mem.copy(u8, &with_working, springs);
         with_working[unknown_idx] = '.';
 
         var with_broken: [128]u8 = undefined;
-        std.mem.copy(u8, with_broken, springs);
+        std.mem.copy(u8, &with_broken, springs);
         with_broken[unknown_idx] = '#';
 
-        search(with_working, counts) + search(with_broken, counts);
-    };
+        result = search(with_working[0..springs.len], counts) + search(with_broken[0..springs.len], counts);
+    }
 
     return result;
 }
-
-// test "simple test" {
-//     var list = std.ArrayList(i32).init(std.testing.allocator);
-//     defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-//     try list.append(42);
-//     try std.testing.expectEqual(@as(i32, 42), list.pop());
-// }
