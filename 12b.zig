@@ -65,10 +65,12 @@ const MemoKeyContext = struct {
 const MemoHashMap = std.HashMap(MemoKey, u64, MemoKeyContext, 99);
 
 pub fn search(springs: []u8, counts: []const u8, memo: *MemoHashMap) u64 {
+    // Skip over leading "." - they don't affect the result
     if (springs.len > 0 and springs[0] == '.') {
         return search(springs[1..], counts, memo);
     }
 
+    // Check memoization hash table
     if (memo.get(MemoKey{ .springs = springs, .counts_len = counts.len })) |result| {
         return result;
     }
@@ -82,15 +84,21 @@ pub fn search(springs: []u8, counts: []const u8, memo: *MemoHashMap) u64 {
 
     var result: u64 = undefined;
     if (springs.len == 0 and counts.len == 0) {
+        // Base case - we've matched everything!
         result = 1;
     } else if (springs.len == 0 and counts.len > 0) {
+        // There are no possible springs left, but there are unmatched counts
         result = 0;
     } else if (leading_springs > 0 and (counts.len == 0 or leading_springs > counts[0])) {
+        // Leading number of springs is bigger than the expected count - this will never match
         result = 0;
     } else if (complete_group) {
+        // Matched a complete group - check the size
         if (leading_springs == counts[0]) {
+            // Matched the first count - trim it off and go deeper
             result = search(springs[counts[0]..], counts[1..], memo);
         } else {
+            // Group was a different size - this will never match
             result = 0;
         }
     } else {
@@ -100,15 +108,14 @@ pub fn search(springs: []u8, counts: []const u8, memo: *MemoHashMap) u64 {
             std.debug.panic("wtf: {s}", .{springs});
         };
 
-        var before = springs[unknown_idx];
-
+        // Explore both options for unknown value
         springs[unknown_idx] = '.';
         const with_working = search(springs, counts, memo);
 
         springs[unknown_idx] = '#';
         const with_broken = search(springs, counts, memo);
 
-        springs[unknown_idx] = before;
+        springs[unknown_idx] = '?';
 
         result = with_working + with_broken;
     }

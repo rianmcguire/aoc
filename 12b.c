@@ -18,6 +18,7 @@ int64_t search(char* springs, int* counts, int counts_len) {
     ENTRY item = { .key = memo_key };
     ENTRY *found;
     if ((found = hsearch(item, FIND)) != NULL) {
+        // The result is packed into the void* value
         return (int64_t)found->data;
     }
 
@@ -49,19 +50,20 @@ int64_t search(char* springs, int* counts, int counts_len) {
         char* unknown_p = strchr(springs, '?');
         int unknown_idx = unknown_p - springs;
 
-        char before = springs[unknown_idx];
-
+        // Explore both options for unknown value
         springs[unknown_idx] = '.';
         int64_t with_working = search(springs, counts, counts_len);
 
         springs[unknown_idx] = '#';
         int64_t with_broken = search(springs, counts, counts_len);
 
-        springs[unknown_idx] = before;
+        // Restore the value we modified
+        springs[unknown_idx] = '?';
 
         result = with_working + with_broken;
     }
 
+    // Store result is hash table. item.key is freed by hdestroy()
     item.key = strdup(item.key);
     item.data = (void*)result;
     hsearch(item, ENTER);
