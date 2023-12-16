@@ -2,12 +2,20 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <search.h>
 
-int search(char* springs, int* counts, int counts_len) {
+int64_t search(char* springs, int* counts, int counts_len) {
     // Skip over leading "." - they don't affect the result
     while (springs[0] == '.') springs++;
 
-    // TODO: memoize
+    // Check memoization hash table
+    ENTRY item;
+    item.key = malloc(1000);
+    snprintf(item.key, 1000, "%s%d", springs, counts_len);
+    ENTRY *found;
+    if ((found = hsearch(item, FIND)) != NULL) {
+        return (int64_t)found->data;
+    }
 
     bool springs_empty = springs[0] == '\0';
 
@@ -16,7 +24,7 @@ int search(char* springs, int* counts, int counts_len) {
     int leading_springs = strp - springs;
     bool complete_group = leading_springs > 0 && (strp[0] == '.' || strp[0] == '\0');
 
-    int result;
+    int64_t result;
     if (springs_empty && counts_len == 0) {
         // Base case - we've matched everything!
         result = 1;
@@ -53,11 +61,14 @@ int search(char* springs, int* counts, int counts_len) {
         result = search(with_working, counts, counts_len) + search(with_broken, counts, counts_len);
     }
 
+    item.data = (void*)result;
+    hsearch(item, ENTER);
+
     return result;
 }
 
 int main() {
-    int sum = 0;
+    int64_t sum = 0;
     char buffer[1000];
     while (fgets(buffer, sizeof(buffer), stdin) != NULL) {
         char *buffer_p = buffer;
@@ -79,9 +90,11 @@ int main() {
             counts[counts_len++] = atoi(count);
         }
 
-        int result = search(springs_unfolded, counts, counts_len);
+        hcreate(1000);
+        int64_t result = search(springs_unfolded, counts, counts_len);
+        hdestroy();
 
         sum += result;
     }
-    printf("%i\n", sum);
+    printf("%lli\n", sum);
 }
