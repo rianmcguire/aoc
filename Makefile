@@ -1,10 +1,13 @@
-PROGRAMS := $(patsubst %.c, %, $(wildcard *.c))
+PROGRAMS := $(patsubst %, %.exe, $(wildcard *.c *.zig))
 CFLAGS = -Wall -Werror -O3
 
 default: $(PROGRAMS)
 
-%: %.c
+%.c.exe: %.c
 	cc $(FLAGS) $< -o $@
 
+%.zig.exe: %.zig
+	zig build-exe -O ReleaseFast $< --name $@
+
 clean:
-	-rm $(PROGRAMS)
+	-rm -f $(PROGRAMS)

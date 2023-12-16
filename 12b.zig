@@ -8,9 +8,15 @@ pub fn main() !void {
 
     var sum: u64 = 0;
 
+    var args_it = std.process.args();
+    _ = args_it.skip();
+
+    const filename = args_it.next() orelse std.debug.panic("No filename", .{});
+    const file = try std.fs.cwd().openFile(filename, .{});
+
     var buf: [SPRINGS_MAX]u8 = undefined;
-    const stdin = std.io.getStdIn().reader();
-    while (try stdin.readUntilDelimiterOrEof(&buf, '\n')) |line| {
+    var reader = file.reader();
+    while (try reader.readUntilDelimiterOrEof(&buf, '\n')) |line| {
         var it = std.mem.splitScalar(u8, line, ' ');
         const springs_orig = it.first();
         const counts_str_orig = it.rest();

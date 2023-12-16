@@ -69,10 +69,12 @@ int64_t search(char* springs, int* counts, int counts_len) {
     return result;
 }
 
-int main() {
+int main(int argc, char **argv) {
     int64_t sum = 0;
     char buffer[SPRINGS_MAX];
-    while (fgets(buffer, sizeof(buffer), stdin) != NULL) {
+
+    FILE *fp = fopen(argv[1], "r");
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
         char *buffer_p = buffer;
         char *springs = strsep(&buffer_p, " ");
         char *counts_str = buffer_p;
