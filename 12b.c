@@ -49,15 +49,17 @@ int64_t search(char* springs, int* counts, int counts_len) {
         char* unknown_p = strchr(springs, '?');
         int unknown_idx = unknown_p - springs;
 
-        char with_working[SPRINGS_MAX];
-        strlcpy(with_working, springs, sizeof(with_working));
-        with_working[unknown_idx] = '.';
+        char before = springs[unknown_idx];
 
-        char with_broken[SPRINGS_MAX];
-        strlcpy(with_broken, springs, sizeof(with_broken));
-        with_broken[unknown_idx] = '#';
+        springs[unknown_idx] = '.';
+        int64_t with_working = search(springs, counts, counts_len);
 
-        result = search(with_working, counts, counts_len) + search(with_broken, counts, counts_len);
+        springs[unknown_idx] = '#';
+        int64_t with_broken = search(springs, counts, counts_len);
+
+        springs[unknown_idx] = before;
+
+        result = with_working + with_broken;
     }
 
     item.key = strdup(item.key);

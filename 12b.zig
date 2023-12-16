@@ -56,7 +56,7 @@ const MemoKeyContext = struct {
 
 const MemoHashMap = std.HashMap(MemoKey, u64, MemoKeyContext, 80);
 
-pub fn search(springs: []const u8, counts: []const u8, memo: *MemoHashMap) u64 {
+pub fn search(springs: []u8, counts: []const u8, memo: *MemoHashMap) u64 {
     if (springs.len > 0 and springs[0] == '.') {
         return search(springs[1..], counts, memo);
     }
@@ -92,17 +92,17 @@ pub fn search(springs: []const u8, counts: []const u8, memo: *MemoHashMap) u64 {
             std.debug.panic("wtf: {s}", .{springs});
         };
 
-        var with_working_buf: [SPRINGS_MAX]u8 = undefined;
-        var with_working = with_working_buf[0..springs.len];
-        @memcpy(with_working, springs);
-        with_working[unknown_idx] = '.';
+        var before = springs[unknown_idx];
 
-        var with_broken_buf: [SPRINGS_MAX]u8 = undefined;
-        var with_broken = with_broken_buf[0..springs.len];
-        @memcpy(with_broken, springs);
-        with_broken[unknown_idx] = '#';
+        springs[unknown_idx] = '.';
+        const with_working = search(springs, counts, memo);
 
-        result = search(with_working, counts, memo) + search(with_broken, counts, memo);
+        springs[unknown_idx] = '#';
+        const with_broken = search(springs, counts, memo);
+
+        springs[unknown_idx] = before;
+
+        result = with_working + with_broken;
     }
 
     const springs_alloc = memo.allocator.dupe(u8, springs) catch |err| std.debug.panic("{any}", .{err});
