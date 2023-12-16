@@ -13,9 +13,9 @@ int64_t search(char* springs, int* counts, int counts_len) {
     while (springs[0] == '.') springs++;
 
     // Check memoization hash table
-    ENTRY item;
-    item.key = malloc(SPRINGS_MAX);
-    snprintf(item.key, SPRINGS_MAX, "%s%d", springs, counts_len);
+    char memo_key[SPRINGS_MAX];
+    snprintf(memo_key, sizeof(memo_key), "%s%d", springs, counts_len);
+    ENTRY item = { .key = memo_key };
     ENTRY *found;
     if ((found = hsearch(item, FIND)) != NULL) {
         return (int64_t)found->data;
@@ -60,6 +60,7 @@ int64_t search(char* springs, int* counts, int counts_len) {
         result = search(with_working, counts, counts_len) + search(with_broken, counts, counts_len);
     }
 
+    item.key = strdup(item.key);
     item.data = (void*)result;
     hsearch(item, ENTER);
 
