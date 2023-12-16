@@ -6,7 +6,7 @@
 
 #define SPRINGS_MAX 128
 #define COUNTS_MAX 64
-#define HASH_TABLE_SIZE 1000
+#define HASH_TABLE_SIZE 8192
 
 int64_t search(char* springs, int* counts, int counts_len) {
     // Skip over leading "." - they don't affect the result

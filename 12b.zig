@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const SPRINGS_MAX = 128;
+const HASH_TABLE_CAPACITY = 8192;
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -32,6 +33,7 @@ pub fn main() !void {
         }
 
         var memo = MemoHashMap.init(allocator);
+        memo.ensureTotalCapacity(HASH_TABLE_CAPACITY) catch |err| std.debug.panic("{any}", .{err});
         sum += search(springs, counts.items, &memo);
 
         _ = arena.reset(.retain_capacity);
@@ -60,7 +62,7 @@ const MemoKeyContext = struct {
     }
 };
 
-const MemoHashMap = std.HashMap(MemoKey, u64, MemoKeyContext, 80);
+const MemoHashMap = std.HashMap(MemoKey, u64, MemoKeyContext, 99);
 
 pub fn search(springs: []u8, counts: []const u8, memo: *MemoHashMap) u64 {
     if (springs.len > 0 and springs[0] == '.') {
@@ -113,7 +115,7 @@ pub fn search(springs: []u8, counts: []const u8, memo: *MemoHashMap) u64 {
 
     const springs_alloc = memo.allocator.dupe(u8, springs) catch |err| std.debug.panic("{any}", .{err});
     const memoKey = MemoKey{ .springs = springs_alloc, .counts_len = counts.len };
-    memo.put(memoKey, result) catch |err| std.debug.panic("{any}", .{err});
+    memo.putAssumeCapacity(memoKey, result);
 
     return result;
 }
