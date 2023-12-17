@@ -13,7 +13,7 @@ default: $(PROGRAMS)
 	go build -o $@ $<
 
 %.rs.exe: %.rs
-	rustc -o $@ $<
+	rustc -O -o $@ $<
 
 clean:
 	-rm -f $(PROGRAMS)
