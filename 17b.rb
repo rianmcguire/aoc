@@ -4,7 +4,7 @@ require 'bundler/inline'
 
 gemfile do
   source 'https://rubygems.org'
-  gem 'pqueue', require: true
+  gem 'rb_heap', require: true
 end
 
 Pos = Struct.new(:x, :y) do
@@ -55,14 +55,14 @@ MAX_X = map.first.length - 1
 
 # https://www.redblobgames.com/pathfinding/a-star/introduction.html#astar
 def a_star(source:, adjacent_fn:, target_fn:, heuristic_fn:, cost_fn:)
-    frontier = PQueue.new
-    frontier.push([0, source])
+    frontier = Heap.new {|a, b| a.first < b.first}
+    frontier.add([0, source])
 
     cost_so_far = Hash.new { |h, k| h[k] = 99999999 }
     cost_so_far[source] = 0
 
     while !frontier.empty?
-        _, current = frontier.shift
+        _, current = frontier.pop
 
         if target_fn.call(current)
             return cost_so_far[current]
@@ -73,7 +73,7 @@ def a_star(source:, adjacent_fn:, target_fn:, heuristic_fn:, cost_fn:)
             if !cost_so_far.include?(child) || new_cost < cost_so_far[child]
                 cost_so_far[child] = new_cost
                 priority = new_cost + heuristic_fn.call(child)
-                frontier.push([priority, child])
+                frontier.add([priority, child])
             end
         end
     end
