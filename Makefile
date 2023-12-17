@@ -1,4 +1,4 @@
-PROGRAMS := $(patsubst %, %.exe, $(wildcard *.c *.zig *.go))
+PROGRAMS := $(patsubst %, %.exe, $(wildcard *.c *.zig *.go *.rs))
 CFLAGS = -Wall -Werror -O3
 
 default: $(PROGRAMS)
@@ -11,6 +11,9 @@ default: $(PROGRAMS)
 
 %.go.exe: %.go
 	go build -o $@ $<
+
+%.rs.exe: %.rs
+	rustc -o $@ $<
 
 clean:
 	-rm -f $(PROGRAMS)
