@@ -27,15 +27,29 @@ fn main() {
             .map(|s| s.parse().unwrap())
             .collect();
 
-        sum += search(springs, &counts);
+        sum += search(springs, &counts, &mut MemoMap::new());
     }
 
     println!("{}", sum);
 }
 
-fn search(springs: &[u8], counts: &[usize]) -> u64 {
+type MemoMap = std::collections::HashMap<String, u64>;
+
+// #[derive(Eq, Hash, PartialEq)]
+// struct MemoKey {
+//     springs: Rc<&[u8]>,
+//     counts_len: usize,
+// }
+
+fn search(springs: &[u8], counts: &[usize], memo: &mut MemoMap) -> u64 {
     while springs.len() > 0 && springs[0] == b'.' {
-        return search(&springs[1..], &counts);
+        return search(&springs[1..], &counts, memo);
+    }
+
+    let memo_key = format!("{}{}", std::str::from_utf8(springs).unwrap(), counts.len());
+    match memo.get(&memo_key) {
+        Some(&result) => return result,
+        None => ()
     }
     
     let mut leading_springs = 0;
@@ -55,7 +69,7 @@ fn search(springs: &[u8], counts: &[usize]) -> u64 {
             0
         } else if complete_group {
             if leading_springs == counts[0] {
-                search(&springs[counts[0]..], &counts[1..])
+                search(&springs[counts[0]..], &counts[1..], memo)
             } else {
                 0
             }
@@ -65,13 +79,15 @@ fn search(springs: &[u8], counts: &[usize]) -> u64 {
             let modified: &mut [u8] = &mut springs.to_owned();
 
             modified[unknown_idx] = b'.';
-            let with_working = search(modified, &counts);
+            let with_working = search(modified, &counts, memo);
 
             modified[unknown_idx] = b'#';
-            let with_broken = search(modified, &counts);
+            let with_broken = search(modified, &counts, memo);
 
             with_working + with_broken
         };
+
+    memo.insert(memo_key, result);
 
     return result;
 }
