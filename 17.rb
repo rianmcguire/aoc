@@ -1,5 +1,12 @@
 #!/usr/bin/env ruby
 
+require 'bundler/inline'
+
+gemfile do
+  source 'https://rubygems.org'
+  gem 'pqueue', require: true
+end
+
 Pos = Struct.new(:x, :y) do
     def step(dir)
         case dir
@@ -15,7 +22,12 @@ Pos = Struct.new(:x, :y) do
     end
 
     def valid?
-        (0..MAX).include?(x) && (0..MAX).include?(y)
+        (0..MAX_X).include?(x) && (0..MAX_Y).include?(y)
+    end
+
+    def dist(b)
+        a = self
+        (a.x - b.x).abs + (a.y - b.y).abs
     end
 end
 
@@ -32,57 +44,46 @@ def reverse(dir)
     end
 end
 
-$map = map = ARGF.each_line.each_with_index.map do |line, y|
+map = ARGF.each_line.each_with_index.map do |line, y|
     line.chomp.chars.each_with_index.map do |c, x|
         c.to_i
     end
 end
 
-MAX = map.length - 1
+MAX_Y = map.length - 1
+MAX_X = map.first.length - 1
 
-def cost(node)
-    $map[node.pos.y][node.pos.x]
-end
+# https://www.redblobgames.com/pathfinding/a-star/introduction.html#astar
+def a_star(source:, adjacent_fn:, target_fn:, heuristic_fn:, cost_fn:)
+    frontier = PQueue.new
+    frontier.push([0, source])
 
-def bfs(source:, adjacent_fn:, target_fn:)
-    to_explore = [source]
-    explored = Set.new([source])
-    path = {}
-    path[source] = []
+    cost_so_far = Hash.new { |h, k| h[k] = 99999999 }
+    cost_so_far[source] = 0
 
-    dist = Hash.new { |h, k| h[k] = 99999999 }
-    dist[source] = 0
+    while !frontier.empty?
+        _, current = frontier.shift
 
-    while to_explore.any?
-        to_explore.sort_by! { dist[_1] }
-        node = to_explore.shift
-        puts "#{to_explore.count} #{dist[node]}"
-
-        if target_fn.call(node)
-            return path[node], dist[node]
+        if target_fn.call(current)
+            return cost_so_far[current]
         end
 
-        adjacent_fn.call(node).each do |child|
-            if explored.include?(child)
-                next
-            elsif dist[child] > dist[node] + cost(child)
-                if !to_explore.include?(child)
-                    to_explore << child
-                end
-                dist[child] = dist[node] + cost(child)
-                path[child] = path[node]
-                path[child] << child
+        adjacent_fn.call(current).each do |child|
+            new_cost = cost_so_far[current] + cost_fn.call(current, child)
+            if !cost_so_far.include?(child) || new_cost < cost_so_far[child]
+                cost_so_far[child] = new_cost
+                priority = new_cost + heuristic_fn.call(child)
+                frontier.push([priority, child])
             end
         end
     end
-
-    nil
 end
 
 State = Struct.new(:pos, :last_dir, :last_dir_count)
 
-state = State.new(pos: Pos.new(0, 0), last_dir: nil, last_dir_count: 0) 
-path, loss = bfs(
+target = Pos.new(MAX_X, MAX_Y)
+state = State.new(pos: Pos.new(0, 0), last_dir: nil, last_dir_count: 0)
+loss = a_star(
     source: state,
     adjacent_fn: proc do |state|
         new_states = [:n, :s, :w, :e].filter_map do |dir|
@@ -101,7 +102,13 @@ path, loss = bfs(
         new_states
     end,
     target_fn: proc do |state|
-        state.pos.x == MAX && state.pos.y == MAX
+        state.pos == target
+    end,
+    heuristic_fn: proc do |state|
+        state.pos.dist(target)
+    end,
+    cost_fn: proc do |from, to|
+        map[to.pos.y][to.pos.x]
     end,
 )
 

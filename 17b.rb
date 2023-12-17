@@ -44,7 +44,7 @@ def reverse(dir)
     end
 end
 
-$map = map = ARGF.each_line.each_with_index.map do |line, y|
+map = ARGF.each_line.each_with_index.map do |line, y|
     line.chomp.chars.each_with_index.map do |c, x|
         c.to_i
     end
@@ -53,46 +53,37 @@ end
 MAX_Y = map.length - 1
 MAX_X = map.first.length - 1
 
-def astar(source:, adjacent_fn:, target_fn:, heuristic_fn:, weight_fn:)
-    open_set = PQueue.new
+# https://www.redblobgames.com/pathfinding/a-star/introduction.html#astar
+def a_star(source:, adjacent_fn:, target_fn:, heuristic_fn:, cost_fn:)
+    frontier = PQueue.new
+    frontier.push([0, source])
 
-    g_score = Hash.new { |h, k| h[k] = 99999999 }
-    g_score[source] = 0
+    cost_so_far = Hash.new { |h, k| h[k] = 99999999 }
+    cost_so_far[source] = 0
 
-    f_score = Hash.new { |h, k| h[k] = 99999999 }
-    f_score[source] = heuristic_fn.call(source)
-
-    open_set.push([f_score[source], source])
-
-    while !open_set.empty?
-        # open_set.sort_by! { f_score[_1] }
-        _, current = open_set.shift
+    while !frontier.empty?
+        _, current = frontier.shift
 
         if target_fn.call(current)
-            return g_score[current]
+            return cost_so_far[current]
         end
 
         adjacent_fn.call(current).each do |child|
-            tentative_score = g_score[current] + weight_fn.call(child)
-            if tentative_score < g_score[child]
-                g_score[child] = tentative_score
-                f_score[child] = tentative_score + heuristic_fn.call(child)
-                # if !open_set.include?(child)
-                    open_set.push([f_score[child], child])
-                # end
+            new_cost = cost_so_far[current] + cost_fn.call(current, child)
+            if !cost_so_far.include?(child) || new_cost < cost_so_far[child]
+                cost_so_far[child] = new_cost
+                priority = new_cost + heuristic_fn.call(child)
+                frontier.push([priority, child])
             end
         end
     end
 end
 
-State = Struct.new(:pos, :last_dir, :last_dir_count, :f_score)
+State = Struct.new(:pos, :last_dir, :last_dir_count)
 
 target = Pos.new(MAX_X, MAX_Y)
-
-FSCORE_MAX = 999999
-
-state = State.new(pos: Pos.new(0, 0), last_dir: nil, last_dir_count: 0, f_score: FSCORE_MAX) 
-loss = astar(
+state = State.new(pos: Pos.new(0, 0), last_dir: nil, last_dir_count: 0)
+loss = a_star(
     source: state,
     adjacent_fn: proc do |state|
         new_states = [:n, :s, :w, :e].filter_map do |dir|
@@ -120,8 +111,8 @@ loss = astar(
     heuristic_fn: proc do |state|
         state.pos.dist(target)
     end,
-    weight_fn: proc do |state|
-        $map[state.pos.y][state.pos.x]
+    cost_fn: proc do |from, to|
+        map[to.pos.y][to.pos.x]
     end,
 )
 
