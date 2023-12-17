@@ -1,12 +1,5 @@
 #!/usr/bin/env ruby
 
-require 'bundler/inline'
-
-gemfile do
-  source 'https://rubygems.org'
-  gem 'rb_heap', require: true
-end
-
 Pos = Struct.new(:x, :y) do
     def step(dir)
         case dir
@@ -53,16 +46,21 @@ end
 MAX_Y = map.length - 1
 MAX_X = map.first.length - 1
 
+require 'bundler/inline'
+gemfile do
+  source 'https://rubygems.org'
+  gem 'pairing_heap', '3.0.1', require: true
+end
 # https://www.redblobgames.com/pathfinding/a-star/introduction.html#astar
 def a_star(source:, adjacent_fn:, target_fn:, heuristic_fn:, cost_fn:)
-    frontier = Heap.new {|a, b| a.first < b.first}
-    frontier.add([0, source])
+    frontier = PairingHeap::MinPriorityQueue.new
+    frontier.push(source, 0)
 
     cost_so_far = Hash.new { |h, k| h[k] = 99999999 }
     cost_so_far[source] = 0
 
     while !frontier.empty?
-        _, current = frontier.pop
+        current = frontier.pop
 
         if target_fn.call(current)
             return cost_so_far[current]
@@ -73,7 +71,7 @@ def a_star(source:, adjacent_fn:, target_fn:, heuristic_fn:, cost_fn:)
             if !cost_so_far.include?(child) || new_cost < cost_so_far[child]
                 cost_so_far[child] = new_cost
                 priority = new_cost + heuristic_fn.call(child)
-                frontier.add([priority, child])
+                frontier.push(child, priority)
             end
         end
     end
