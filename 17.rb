@@ -55,7 +55,7 @@ gemfile do
 end
 # https://www.redblobgames.com/pathfinding/a-star/introduction.html#astar
 def a_star(source:, adjacent_fn:, target_fn:, heuristic_fn:, cost_fn:)
-    frontier = PairingHeap::MinPriorityQueue.new
+    frontier = PairingHeap::SimplePairingHeap.new
     frontier.push(source, 0)
 
     cost_so_far = Hash.new { |h, k| h[k] = 99999999 }
