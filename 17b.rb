@@ -56,7 +56,7 @@ def a_star(source:, adjacent_fn:, target_fn:, heuristic_fn:, cost_fn:)
     frontier = PairingHeap::SimplePairingHeap.new
     frontier.push(source, 0)
 
-    cost_so_far = Hash.new { |h, k| h[k] = 99999999 }
+    cost_so_far = {}
     cost_so_far[source] = 0
 
     while !frontier.empty?
