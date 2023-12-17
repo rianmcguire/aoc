@@ -33,20 +33,23 @@ fn main() {
     println!("{}", sum);
 }
 
-type MemoMap = std::collections::HashMap<String, u64>;
+type MemoMap = std::collections::HashMap<MemoKey, u64>;
 
-// #[derive(Eq, Hash, PartialEq)]
-// struct MemoKey {
-//     springs: Rc<&[u8]>,
-//     counts_len: usize,
-// }
+#[derive(Eq, Hash, PartialEq)]
+struct MemoKey {
+    springs: Box<[u8]>,
+    counts_len: usize,
+}
 
 fn search(springs: &[u8], counts: &[usize], memo: &mut MemoMap) -> u64 {
     while springs.len() > 0 && springs[0] == b'.' {
         return search(&springs[1..], &counts, memo);
     }
 
-    let memo_key = format!("{}{}", std::str::from_utf8(springs).unwrap(), counts.len());
+    let memo_key = MemoKey {
+        springs: Box::from(springs),
+        counts_len: counts.len(),
+    };
     match memo.get(&memo_key) {
         Some(&result) => return result,
         None => ()
