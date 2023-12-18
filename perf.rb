@@ -3,7 +3,7 @@
 require 'benchmark'
 require 'open3'
 
-files = Dir["*.rb", "*.exe"].sort.reject { File.identical? _1, __FILE__ }
+files = Dir["*.rb", "*.exe"].sort.reject { File.identical?(_1, __FILE__) || _1.include?("bench") }
 max_length = files.map(&:length).max
 
 files.each do |file|
