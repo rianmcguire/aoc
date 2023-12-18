@@ -15,7 +15,7 @@ Pos = Struct.new(:x, :y) do
     end
 
     def valid?
-        (0..MAX_X).include?(x) && (0..MAX_Y).include?(y)
+        X_RANGE.include?(x) && Y_RANGE.include?(y)
     end
 
     def dist(b)
@@ -23,6 +23,8 @@ Pos = Struct.new(:x, :y) do
         (a.x - b.x).abs + (a.y - b.y).abs
     end
 end
+
+DIRS = [:n, :s, :w, :e]
 
 def reverse(dir)
     case dir
@@ -43,8 +45,8 @@ map = ARGF.each_line.each_with_index.map do |line, y|
     end
 end
 
-MAX_Y = map.length - 1
-MAX_X = map.first.length - 1
+Y_RANGE = (0..map.length - 1)
+X_RANGE = (0..map.first.length - 1)
 
 require 'bundler/inline'
 gemfile do
@@ -66,7 +68,7 @@ def a_star(source:, adjacent_fn:, target_fn:, heuristic_fn:, cost_fn:)
             return cost_so_far[current]
         end
 
-        adjacent_fn.call(current).each do |child|
+        adjacent_fn.call(current) do |child|
             new_cost = cost_so_far[current] + cost_fn.call(current, child)
             if !cost_so_far.include?(child) || new_cost < cost_so_far[child]
                 cost_so_far[child] = new_cost
@@ -79,29 +81,29 @@ end
 
 State = Struct.new(:pos, :last_dir, :last_dir_count)
 
-target = Pos.new(MAX_X, MAX_Y)
+def adjacent_fn(state)
+    DIRS.each do |dir|
+        # Can't reverse direction
+        next if reverse(dir) == state.last_dir
+
+        # Can't got straight for more than 10 steps
+        next if dir == state.last_dir && state.last_dir_count >= 10
+
+        # Can't turn until 4 steps
+        next if state.last_dir && dir != state.last_dir && state.last_dir_count < 4
+
+        new_pos = state.pos.step(dir)
+        next unless new_pos.valid?
+
+        yield State.new(pos: new_pos, last_dir: dir, last_dir_count: dir == state.last_dir ? state.last_dir_count + 1 : 1)
+    end
+end
+
+target = Pos.new(X_RANGE.max, Y_RANGE.max)
 state = State.new(pos: Pos.new(0, 0), last_dir: nil, last_dir_count: 0)
 loss = a_star(
     source: state,
-    adjacent_fn: proc do |state|
-        new_states = [:n, :s, :w, :e].filter_map do |dir|
-            # Can't reverse direction
-            next if reverse(dir) == state.last_dir
-
-            # Can't got straight for more than 10 steps
-            next if dir == state.last_dir && state.last_dir_count >= 10
-
-            # Can't turn until 4 steps
-            next if state.last_dir && dir != state.last_dir && state.last_dir_count < 4
-
-            new_pos = state.pos.step(dir)
-            next unless new_pos.valid?
-
-            State.new(pos: new_pos, last_dir: dir, last_dir_count: dir == state.last_dir ? state.last_dir_count + 1 : 1)
-        end
-
-        new_states
-    end,
+    adjacent_fn: method(:adjacent_fn),
     target_fn: proc do |state|
         # Must have travelled a minimum of 4 before stopping
         state.pos == target && state.last_dir_count >= 4
