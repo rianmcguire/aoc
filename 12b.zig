@@ -34,7 +34,7 @@ pub fn main() !void {
 
         var memo = MemoHashMap.init(allocator);
         memo.ensureTotalCapacity(HASH_TABLE_CAPACITY) catch |err| std.debug.panic("{any}", .{err});
-        sum += search(springs, counts.items, &memo);
+        sum += search(springs, counts.items, 0, 0, &memo);
 
         _ = arena.reset(.retain_capacity);
     }
@@ -43,44 +43,39 @@ pub fn main() !void {
 }
 
 const MemoKey = struct {
-    springs: []const u8,
+    springs_len: usize,
     counts_len: usize,
+    working_mask: u16,
+    broken_mask: u16,
 };
 
-const MemoKeyContext = struct {
-    pub fn hash(self: @This(), key: MemoKey) u64 {
-        _ = self;
-        var hasher = std.hash.Wyhash.init(0);
-        hasher.update(key.springs);
-        hasher.update(std.mem.asBytes(&key.counts_len));
-        return hasher.final();
-    }
+const MemoHashMap = std.AutoHashMap(MemoKey, u64);
 
-    pub fn eql(self: @This(), a: MemoKey, b: MemoKey) bool {
-        _ = self;
-        return std.mem.eql(u8, a.springs, b.springs) and a.counts_len == b.counts_len;
-    }
-};
-
-const MemoHashMap = std.HashMap(MemoKey, u64, MemoKeyContext, 99);
-
-pub fn search(springs: []u8, counts: []const u8, memo: *MemoHashMap) u64 {
+pub fn search(springs: []u8, counts: []const u8, working_mask: u16, broken_mask: u16, memo: *MemoHashMap) u64 {
     // Skip over leading "." - they don't affect the result
-    if (springs.len > 0 and springs[0] == '.') {
-        return search(springs[1..], counts, memo);
+    if (springs.len > 0 and springs[0] == '.' or working_mask & 1 == 1) {
+        return search(springs[1..], counts, working_mask >> 1, broken_mask >> 1, memo);
     }
 
     // Check memoization hash table
-    if (memo.get(MemoKey{ .springs = springs, .counts_len = counts.len })) |result| {
+    const memo_key = MemoKey{ .springs_len = springs.len, .counts_len = counts.len, .working_mask = working_mask, .broken_mask = broken_mask };
+    if (memo.get(memo_key)) |result| {
         return result;
     }
 
     var leading_springs: usize = 0;
+    var search_mask: u16 = 1;
     for (springs, 0..) |s, i| {
-        if (s != '#') break;
+        if (s != '#' and search_mask & broken_mask == 0) break;
         leading_springs = i + 1;
+        search_mask <<= 1;
     }
-    const complete_group = leading_springs > 0 and (leading_springs > springs.len - 1 or springs[leading_springs] == '.');
+
+    // Is this group of leading broken springs complete, or could it get longer?
+    const complete_group = leading_springs > 0 and (leading_springs > springs.len - 1 or // the group is at the end of the string
+        springs[leading_springs] == '.' or // the spring after is working (in the string)
+        working_mask & (@as(u16, 1) << @truncate(leading_springs)) != 0 // the spring after is work (in the mask)
+    );
 
     var result: u64 = undefined;
     if (springs.len == 0 and counts.len == 0) {
@@ -96,33 +91,28 @@ pub fn search(springs: []u8, counts: []const u8, memo: *MemoHashMap) u64 {
         // Matched a complete group - check the size
         if (leading_springs == counts[0]) {
             // Matched the first count - trim it off and go deeper
-            result = search(springs[counts[0]..], counts[1..], memo);
+            result = search(springs[counts[0]..], counts[1..], working_mask >> @truncate(counts[0]), broken_mask >> @truncate(counts[0]), memo);
         } else {
             // Group was a different size - this will never match
             result = 0;
         }
     } else {
-        const unknown_idx = for (springs, 0..) |s, i| {
-            if (s == '?') break i;
+        search_mask = 1;
+        for (springs) |s| {
+            if (s == '?' and search_mask & (working_mask | broken_mask) == 0) break;
+            search_mask <<= 1;
         } else {
             std.debug.panic("wtf: {s}", .{springs});
-        };
+        }
 
         // Explore both options for unknown value
-        springs[unknown_idx] = '.';
-        const with_working = search(springs, counts, memo);
-
-        springs[unknown_idx] = '#';
-        const with_broken = search(springs, counts, memo);
-
-        springs[unknown_idx] = '?';
+        const with_working = search(springs, counts, working_mask | search_mask, broken_mask, memo);
+        const with_broken = search(springs, counts, working_mask, broken_mask | search_mask, memo);
 
         result = with_working + with_broken;
     }
 
-    const springs_alloc = memo.allocator.dupe(u8, springs) catch |err| std.debug.panic("{any}", .{err});
-    const memoKey = MemoKey{ .springs = springs_alloc, .counts_len = counts.len };
-    memo.putAssumeCapacity(memoKey, result);
+    memo.putAssumeCapacity(memo_key, result);
 
     return result;
 }
