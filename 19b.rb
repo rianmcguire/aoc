@@ -48,7 +48,7 @@ workflow_block.each_line do |line|
     workflows[id] = rules
 end
 
-
+# Yield all possible paths that lead to "A" states
 def all_paths(id, path=[], &block)
     if id == "A"
         yield path
@@ -60,9 +60,13 @@ def all_paths(id, path=[], &block)
     acc = []
     WORKFLOWS[id].each do |rule|
         if rule.var
+            # Rule is conditional - include it in the path and go deeper
             all_paths(rule.target, [*path, *acc, rule], &block)
+
+            # Accumulate the inverse of this rule, so that any rules listed after this one also need to _not_ match this rule.
             acc << rule.invert
         else
+            # Rule is unconditional - we don't need to include it in the path
             all_paths(rule.target, [*path, *acc], &block)
             break
         end
@@ -82,6 +86,7 @@ def ranges(path)
         "s" => MultiRange.new([(1..4000)]),
     }
 
+    # Intersect each rule on this path with the starting ranges
     path.each do |rule|
         ranges[rule.var] &= rule.range
     end

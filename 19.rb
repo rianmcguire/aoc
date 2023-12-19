@@ -25,10 +25,12 @@ workflow_block.each_line do |line|
     rules = rules.map do |rule|
         match = rule.match /(\w+)([<>])(\d+):(\w+)/
         if match
+            # Conditional rule
             var, op, val, target = match[1..]
             val = val.to_i
             Rule.new(var, op, val, target)
         else
+            # Rule value is just the name of the next workflow to jump to
             Rule.new(nil, nil, nil, rule)
         end
     end
@@ -49,24 +51,21 @@ end
 
 accepted = []
 parts.each do |part|
-    w = workflows.fetch("in")
+    id = "in"
     loop do
-        new_id = nil
-        w.each do |rule|
-            new_id = rule.apply(part)
-            break if new_id
-        end
-
-        if new_id == "A"
+        if id == "A"
             accepted << part
             break
-        elsif new_id == "R"
+        elsif id == "R"
             # Rejected
             break
         end
-        
-        w = workflows.fetch(new_id)
+
+        workflows.fetch(id).each do |rule|
+            id = rule.apply(part)
+            break if id
+        end
     end
 end
 
-pp accepted.sum { |part| part.value }
+puts accepted.sum { |part| part.value }
