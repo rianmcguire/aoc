@@ -27,7 +27,7 @@ fn main() {
             .map(|s| s.parse().unwrap())
             .collect();
 
-        sum += search(springs, &counts, &mut MemoMap::new());
+        sum += search(springs, &counts, 0, 0, &mut MemoMap::with_capacity(8192));
     }
 
     println!("{}", sum);
@@ -37,18 +37,22 @@ type MemoMap = std::collections::HashMap<MemoKey, u64>;
 
 #[derive(Eq, Hash, PartialEq)]
 struct MemoKey {
-    springs: Box<[u8]>,
+    springs_len: usize,
     counts_len: usize,
+    working_mask: u16,
+    broken_mask: u16,
 }
 
-fn search(springs: &[u8], counts: &[usize], memo: &mut MemoMap) -> u64 {
-    while springs.len() > 0 && springs[0] == b'.' {
-        return search(&springs[1..], &counts, memo);
+fn search(springs: &[u8], counts: &[usize], working_mask: u16, broken_mask: u16, memo: &mut MemoMap) -> u64 {
+    if springs.len() > 0 && springs[0] == b'.' || working_mask & 1 == 1 {
+        return search(&springs[1..], &counts, working_mask >> 1, broken_mask >> 1, memo);
     }
 
     let memo_key = MemoKey {
-        springs: Box::from(springs),
+        springs_len: springs.len(),
         counts_len: counts.len(),
+        working_mask: working_mask,
+        broken_mask: broken_mask,
     };
     match memo.get(&memo_key) {
         Some(&result) => return result,
@@ -56,12 +60,17 @@ fn search(springs: &[u8], counts: &[usize], memo: &mut MemoMap) -> u64 {
     }
     
     let mut leading_springs = 0;
-    for (i, s) in springs.iter().enumerate() {
-        if *s != b'#' { break; }
+    let mut search_mask: u16 = 1;
+    for (i, &s) in springs.iter().enumerate() {
+        if s != b'#' && search_mask & broken_mask == 0 { break; }
         leading_springs = i + 1;
+        search_mask <<= 1;
     }
-    let complete_group = leading_springs > 0 && (leading_springs > springs.len() - 1 || springs[leading_springs] == b'.');
-
+    let complete_group = leading_springs > 0 && (
+        leading_springs > springs.len() - 1 ||
+        springs[leading_springs] == b'.' ||
+        working_mask & (1 << leading_springs) != 0
+    );
 
     let result: u64 =
         if springs.len() == 0 && counts.len() == 0 {
@@ -72,20 +81,19 @@ fn search(springs: &[u8], counts: &[usize], memo: &mut MemoMap) -> u64 {
             0
         } else if complete_group {
             if leading_springs == counts[0] {
-                search(&springs[counts[0]..], &counts[1..], memo)
+                search(&springs[counts[0]..], &counts[1..], working_mask >> counts[0], broken_mask >> counts[0], memo)
             } else {
                 0
             }
         } else {
-            let unknown_idx = springs.iter().position(|&s| s == b'?').unwrap();
+            search_mask = 1;
+            for &s in springs.iter() {
+                if s == b'?' && search_mask & (working_mask | broken_mask) == 0 { break; }
+                search_mask <<= 1;
+            }
 
-            let modified: &mut [u8] = &mut springs.to_owned();
-
-            modified[unknown_idx] = b'.';
-            let with_working = search(modified, &counts, memo);
-
-            modified[unknown_idx] = b'#';
-            let with_broken = search(modified, &counts, memo);
+            let with_working = search(springs, &counts, working_mask | search_mask, broken_mask, memo);
+            let with_broken = search(springs, &counts, working_mask, broken_mask | search_mask, memo);
 
             with_working + with_broken
         };
