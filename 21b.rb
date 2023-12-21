@@ -68,21 +68,21 @@ compact_frames = {
 
 known_transitions = {}
 
-100.times do |step|
+500.times do |step|
     puts "step #{step}"
     new_positions = Hash.new { |h,k| h[k] = Set.new }
     outs = Hash.new { |h,k| h[k] = Set.new }
     skip_outs = Set.new
+    new_compact_frames = {}
     compact_frames.each do |frame, id|
         positions = $frames_by_id.fetch(id)
 
         key = [id, *DIRS.map { compact_frames.fetch(Pos.new(*frame).step(_1).to_a, null_frame) }]
 
-        if false && known_transitions.include?(key)
-            new_frames[frame], outs[frame] = known_transitions[key]
+        if known_transitions.include?(key)
+            new_compact_frames[frame], outs[frame] = known_transitions[key]
             skip_outs << frame
         else
-            # puts "simulating"
             positions.each do |pos|
                 DIRS.each do |dir|
                     new_pos = pos.step(dir)
@@ -108,12 +108,11 @@ known_transitions = {}
         end
     end
 
-    new_compact_frames = {}
     new_positions.each do |frame, positions|
         new_compact_frames[frame] = cache_frame(positions)
     end
 
-    new_compact_frames.each do |frame, id|
+    compact_frames.each do |frame, id|
         key = [id, *DIRS.map { compact_frames.fetch(Pos.new(*frame).step(_1).to_a, null_frame) }]
 
         if !known_transitions.include?(key)
