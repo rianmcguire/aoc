@@ -50,6 +50,7 @@ X_RANGE = (0..GRID.first.length - 1)
 $next_id = 0
 $frame_ids = {}
 $frames_by_id = {}
+$frame_sizes = {}
 def cache_frame(positions)
     if $frame_ids.include?(positions)
         $frame_ids[positions]
@@ -57,6 +58,7 @@ def cache_frame(positions)
         id = ($next_id += 1)
         $frame_ids[positions] = id
         $frames_by_id[id] = positions
+        $frame_sizes[id] = positions.length
         id
     end
 end
@@ -67,22 +69,21 @@ compact_frames = {
 }
 
 known_transitions = {}
-
-500.times do |step|
-    puts "step #{step}"
+last_frame_count = 0
+last_total = 0
+26501365.times do |step|
     new_positions = Hash.new { |h,k| h[k] = Set.new }
     outs = Hash.new { |h,k| h[k] = Set.new }
     skip_outs = Set.new
     new_compact_frames = {}
     compact_frames.each do |frame, id|
-        positions = $frames_by_id.fetch(id)
-
         key = [id, *DIRS.map { compact_frames.fetch(Pos.new(*frame).step(_1).to_a, null_frame) }]
 
         if known_transitions.include?(key)
             new_compact_frames[frame], outs[frame] = known_transitions[key]
             skip_outs << frame
         else
+            positions = $frames_by_id.fetch(id)
             positions.each do |pos|
                 DIRS.each do |dir|
                     new_pos = pos.step(dir)
@@ -122,10 +123,20 @@ known_transitions = {}
     end
 
     compact_frames = new_compact_frames
+
+    total = compact_frames.values.map { $frame_sizes[_1] }.sum
+    puts "after step #{step} frames #{compact_frames.length} total #{total} (cache #{$frames_by_id.length} transitions #{known_transitions.length})"
+    if compact_frames.length != last_frame_count
+        puts "frame count changed #{last_frame_count} -> #{compact_frames.length} delta #{compact_frames.length - last_frame_count}"
+        puts "total changed #{last_total} -> #{total} delta #{total - last_total}"
+
+        last_frame_count = compact_frames.length
+        last_total = total
+    end
 end
 
 # pp known_transitions.length
 
 puts "frame cache size: #{$frames_by_id.length}"
 
-puts compact_frames.values.map { $frames_by_id[_1].length }.sum
+puts compact_frames.values.map { $frame_sizes[_1] }.sum
