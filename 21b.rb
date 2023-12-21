@@ -47,21 +47,38 @@ end
 Y_RANGE = (0..GRID.length - 1)
 X_RANGE = (0..GRID.first.length - 1)
 
-frames = {
-    [0, 0] => Set.new([starting_pos]),
+$next_id = 0
+$frame_ids = {}
+$frames_by_id = {}
+def cache_frame(positions)
+    if $frame_ids.include?(positions)
+        $frame_ids[positions]
+    else
+        id = ($next_id += 1)
+        $frame_ids[positions] = id
+        $frames_by_id[id] = positions
+        id
+    end
+end
+null_frame = cache_frame(Set.new)
+initial_frame = cache_frame( Set.new([starting_pos]))
+compact_frames = {
+    [0, 0] => initial_frame,
 }
 
 known_transitions = {}
 
 100.times do |step|
-    puts "step #{step} frames #{frames.length}"
-    new_frames = Hash.new { |h,k| h[k] = Set.new }
+    puts "step #{step}"
+    new_positions = Hash.new { |h,k| h[k] = Set.new }
     outs = Hash.new { |h,k| h[k] = Set.new }
     skip_outs = Set.new
-    frames.each do |frame, positions|
-        key = [positions, *DIRS.map { frames.fetch(Pos.new(*frame).step(_1).to_a, Set.new) }]
+    compact_frames.each do |frame, id|
+        positions = $frames_by_id.fetch(id)
 
-        if known_transitions.include?(key)
+        key = [id, *DIRS.map { compact_frames.fetch(Pos.new(*frame).step(_1).to_a, null_frame) }]
+
+        if false && known_transitions.include?(key)
             new_frames[frame], outs[frame] = known_transitions[key]
             skip_outs << frame
         else
@@ -72,7 +89,7 @@ known_transitions = {}
                     next unless new_pos.valid?
 
                     if new_pos.frame == [0, 0]
-                        new_frames[frame] << new_pos
+                        new_positions[frame] << new_pos
                     else
                         outs[frame] << new_pos
                     end
@@ -86,25 +103,30 @@ known_transitions = {}
             dest_frame = new_pos.frame.zip(source_frame).map { |a,b| a + b }
             if !skip_outs.include?(dest_frame)
                 # puts "applying outs"
-                new_frames[dest_frame] << new_pos.normalize
+                new_positions[dest_frame] << new_pos.normalize
             end
         end
     end
 
-    frames.each do |frame, positions|
-        key = [positions, *DIRS.map { frames.fetch(Pos.new(*frame).step(_1).to_a, Set.new) }]
+    new_compact_frames = {}
+    new_positions.each do |frame, positions|
+        new_compact_frames[frame] = cache_frame(positions)
+    end
+
+    new_compact_frames.each do |frame, id|
+        key = [id, *DIRS.map { compact_frames.fetch(Pos.new(*frame).step(_1).to_a, null_frame) }]
 
         if !known_transitions.include?(key)
             # puts "saving new transition"
-            known_transitions[key] = [new_frames.fetch(frame), outs[frame]]
+            known_transitions[key] = [new_compact_frames.fetch(frame), outs[frame]]
         end
     end
 
-    frames = new_frames
+    compact_frames = new_compact_frames
 end
 
 # pp known_transitions.length
 
-# pp frames
-puts frames.values.sum(&:length)
-# pp positions.length
+puts "frame cache size: #{$frames_by_id.length}"
+
+puts compact_frames.values.map { $frames_by_id[_1].length }.sum
