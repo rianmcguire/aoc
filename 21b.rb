@@ -26,10 +26,6 @@ Pos = Struct.new(:x, :y) do
     def frame
         [x / (X_RANGE.max + 1), y / (Y_RANGE.max + 1)]
     end
-
-    # def frame_shift(frame)
-    #     Pos.new(x - frame[0] * (X_RANGE.max + 1), y - frame[1] * (Y_RANGE.max + 1))
-    # end
 end
 
 DIRS = [:n, :s, :e, :w]
@@ -68,21 +64,13 @@ compact_frames = {
     [0, 0] => initial_frame,
 }
 
-$oscilating = {}
-
 def print_frames(frames)
-    # x_range = Range.new(*frames.keys.map(&:first).minmax)
-    # y_range = Range.new(*frames.keys.map(&:last).minmax)
     x_range = -50..50
     y_range = -50..50
 
-    # pp x_range, y_range
-
     y_range.each do |y|
         x_range.each do |x|
-            if $oscilating.include?([x, y])
-                $stdout.write " ---- "
-            elsif frames.include?([x, y])
+            if frames.include?([x, y])
                 id = frames[[x, y]]
                 size = $frame_sizes[id]
                 $stdout.write " #{id.to_s.rjust(4, ' ')} "
@@ -95,9 +83,12 @@ def print_frames(frames)
 end
 
 known_transitions = {}
-last_frames = nil
-last_step = nil
-100.times do |step|
+last_total = 0
+last_delta = 0
+last_delta_delta = 0
+step = 0
+loop do
+    step += 1
     new_positions = Hash.new { |h,k| h[k] = Set.new }
     outs = Hash.new { |h,k| h[k] = Set.new }
     skip_outs = Set.new
@@ -129,7 +120,6 @@ last_step = nil
         positions.each do |new_pos|
             dest_frame = new_pos.frame.zip(source_frame).map { |a,b| a + b }
             if !skip_outs.include?(dest_frame)
-                # puts "applying outs"
                 new_positions[dest_frame] << new_pos.normalize
             end
         end
@@ -143,70 +133,33 @@ last_step = nil
         key = [id, *DIRS.map { compact_frames.fetch(Pos.new(*frame).step(_1).to_a, null_frame) }]
 
         if !known_transitions.include?(key)
-            # puts "saving new transition"
             known_transitions[key] = [new_compact_frames.fetch(frame), outs[frame]]
         end
     end
 
-    puts "\e[H\e[2J"
-
-    to_delete = []
-    if last_frames
-        last_frames.each do |frame, old_id|
-            neighbours = DIRS.map { Pos.new(*frame).step(_1).to_a }
-            last_key = [old_id, *neighbours.map { last_frames.fetch(_1, null_frame) }]
-            new_id = new_compact_frames[frame]
-            new_key = [new_id, *neighbours.map { new_compact_frames.fetch(_1, null_frame) }]
-
-            if new_key == last_key
-                # puts "oscilating #{frame}"
-                # $oscilating[frame] = [old_id, new_id, step]
-                # to_delete << frame
-            end
-        end
-    end
-
-    to_delete.each do |f|
-        new_compact_frames.delete f
-    end
-
-    last_frames = compact_frames
     compact_frames = new_compact_frames
 
-    total = compact_frames.values.map { $frame_sizes[_1] }.sum
-    puts "after step #{step} frames #{compact_frames.length} total #{total} (cache #{$frames_by_id.length} transitions #{known_transitions.length})"
-    # # osc_totals = compact_frames.values.filter { _1 == 45 || _1 == 37 }.map { $frame_sizes[_1] }.sum
-    # # puts "osc total #{osc_totals}"
-    # puts "size 37 #{$frame_sizes[37]}"
-    # puts "size 45 #{$frame_sizes[45]}"
-    print_frames(compact_frames)
+    # puts "\e[H\e[2J"
+    # print_frames(compact_frames)
 
-    # if compact_frames.length != last_frame_count
-    #     puts "frame count changed #{last_frame_count} -> #{compact_frames.length} delta #{compact_frames.length - last_frame_count}"
-    #     puts "total changed #{last_total} -> #{total} delta #{total - last_total}"
+    period = 131
+    if ((step - 458) % period == 0)
+        puts "#{step}"
+        total = compact_frames.values.map { $frame_sizes[_1] }.sum
+        delta = total - last_total
+        delta_delta = delta - last_delta
+        puts "total: #{total} delta #{delta}, delta delta #{delta_delta}"
 
-    #     last_frame_count = compact_frames.length
-    #     last_total = total
-    # end
-    last_step = step
-end
+        if delta_delta == last_delta_delta
+            # We can project from here
+            target_step = 26501365
+            periods = (target_step - step) / period
+            puts total + delta * periods + delta_delta * (periods * (periods + 1) / 2)
+            exit
+        end
 
-# pp known_transitions.length
-
-puts "frame cache size: #{$frames_by_id.length}"
-
-total = compact_frames.values.map { $frame_sizes[_1] }.sum
-
-osc_total = $oscilating.map do |frame, values|
-    old_id, new_id, step = values
-
-    id = if step % 2 == last_step % 2
-        old_id
-    else
-        new_id
+        last_total = total
+        last_delta = delta
+        last_delta_delta = delta_delta
     end
-    
-    $frame_sizes[id]
-end.sum
-
-puts total + osc_total
+end
