@@ -14,17 +14,18 @@ Pos = Struct.new(:x, :y) do
         end
     end
 
-    def normalize
-        Pos.new(x % (X_RANGE.max + 1), y % (Y_RANGE.max + 1))
-    end
-
     def valid?
-        n_pos = normalize
-        GRID[n_pos.y][n_pos.x] != "#"
+        GRID[y % (Y_RANGE.max + 1)][x % (X_RANGE.max + 1)] != "#"
     end
 end
 
 DIRS = [:n, :s, :e, :w]
+
+target_step = if ARGV.length > 1
+    ARGV.pop.to_i
+else
+    26501365
+end
 
 starting_pos = nil
 GRID = ARGF.each_line.each_with_index.map do |line, y|
@@ -39,21 +40,43 @@ end
 Y_RANGE = (0..GRID.length - 1)
 X_RANGE = (0..GRID.first.length - 1)
 
+def try_project(series, target_length)
+    # Try possible period lengths
+    (1..200).each do |period|
+        # Get every nth element in the series, stepping back from the latest
+        every_nth = (series.length - 1).step(0, -period).map { |i| series[i] }.reverse
+
+        # If the second derivative is constant, we've found a fit
+        first_deriv = every_nth.each_cons(2).map { |a, b| b - a }
+        second_deriv = first_deriv.each_cons(2).map { |a, b| b - a }
+        next unless second_deriv.length >= 2 && second_deriv.uniq.length == 1
+
+        # Wait until the distance to the target is an exact multiple the period
+        next unless (target_length - series.length) % period == 0
+
+        periods = (target_length - series.length) / period
+
+        # Every period, the first derivative grows by the second derivative.
+        #
+        # So to project 4 periods, we need to add:
+        # + the current last value
+        # + first_deriv * 4
+        # + second_deriv * 1 (for the first period)
+        # + second_deriv * 2 (for the second period)
+        # + second_deriv * 3 (for the third period)
+        # + second_deriv * 4 (for the forth period)
+        #
+        # The number of second_derivs we need to add for n periods follows the sequence (1, 1+2, 1+2+3, 1+2+3+4) =
+        # (1, 3, 6, 10), which is trangular_number(n) = n * (n + 1) / 2 (https://en.wikipedia.org/wiki/Triangular_number)
+        return series.last + first_deriv.last * periods + second_deriv.last * (periods * (periods + 1) / 2)
+    end
+
+    nil
+end
 
 positions = Set.new([starting_pos])
-
-target_step = 26501365
-# I observed that after a certain point, the number of positions grows by a predictable amount every 131 steps.
-# TODO: automatically detect this period
-period = 131
-
-step = 0
-last_total = 0
-last_delta = 0
-last_delta_delta = 0
+totals = []
 loop do
-    step += 1
-
     new_positions = Set.new
     positions.each do |pos|
         DIRS.each do |dir|
@@ -66,22 +89,10 @@ loop do
 
     positions = new_positions
 
-    if ((target_step - step) % period == 0)
-        puts "#{step}"
-        total = positions.length
-        delta = total - last_total
-        delta_delta = delta - last_delta
-        puts "total: #{total} delta #{delta}, delta delta #{delta_delta}"
-
-        if delta_delta == last_delta_delta
-            # We have enough information to project from here
-            periods = (target_step - step) / period
-            puts total + delta * periods + delta_delta * (periods * (periods + 1) / 2)
-            break
-        end
-
-        last_total = total
-        last_delta = delta
-        last_delta_delta = delta_delta
+    totals << positions.length
+    result = try_project(totals, target_step)
+    if result
+        puts result
+        break
     end
 end
