@@ -43,53 +43,53 @@ bricks = ARGF.each_line.each_with_index.map do |line, index|
     Brick.new(index, a, b)
 end
 
-def try_move(bricks)
+bricks = bricks.sort_by { |b| [b.a.z, b.b.z].min }
+
+def settle(bricks)
+    # Assumes bricks are sorted in ascending minimum z order
+
     bricks_by_coord = {}
     bricks.each do |brick|
         brick.coords.each do |coord|
             if bricks_by_coord.include?(coord)
                 raise "wtf"
             end
-            bricks_by_coord[coord] = brick
+            bricks_by_coord[coord] = brick.id
         end
     end
 
     any_moved = false
     bricks = bricks.map do |brick|
-        next brick if brick.on_ground?
+        while !brick.on_ground?
+            new_brick = brick.drop
+            if coord = new_brick.coords.find { bricks_by_coord.include?(_1) && bricks_by_coord[_1] != brick.id }
+                # Blocked
+                break
+            else
+                any_moved = true
 
-        new_brick = brick.drop
-        if new_brick.coords.any? { bricks_by_coord.include?(_1) && bricks_by_coord[_1] != brick }
-            # Blocked
-            brick
-        else
-            any_moved = true
-            new_brick
+                brick.coords.each { bricks_by_coord.delete _1 }
+                new_brick.coords.each { bricks_by_coord[_1] = brick.id }
+
+                brick = new_brick
+            end
         end
+
+        brick
     end
 
     [bricks, any_moved]
 end
 
-# Settle
-loop do
-    bricks, any_moved = try_move(bricks)
-    break unless any_moved
-end
+# Initial settle
+bricks, _ = settle(bricks)
 
-puts "Settled"
-
-# Check
+# Test removal of each brick
 bricks.map do |brick|
-    pp brick
-
     bricks_without = bricks.reject { _1 == brick }
     before = bricks_without.dup
 
-    loop do
-        bricks_without, any_moved = try_move(bricks_without)
-        break unless any_moved
-    end
+    bricks_without, _ = settle(bricks_without)
 
     (bricks_without - before).count
 end.sum.then { puts _1 }
