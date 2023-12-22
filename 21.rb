@@ -15,11 +15,17 @@ Pos = Struct.new(:x, :y) do
     end
 
     def valid?
-        X_RANGE.include?(x) && Y_RANGE.include?(y) && (GRID[y][x] == "." || GRID[y][x] == "S")
+        X_RANGE.include?(x) && Y_RANGE.include?(y) && (GRID[y][x] != "#")
     end
 end
 
 DIRS = [:n, :s, :e, :w]
+
+target_step = if ARGV.length > 1
+    ARGV.pop.to_i
+else
+    64
+end
 
 starting_pos = nil
 GRID = ARGF.each_line.each_with_index.map do |line, y|
@@ -34,55 +40,19 @@ end
 Y_RANGE = (0..GRID.length - 1)
 X_RANGE = (0..GRID.first.length - 1)
 
-def bfs(source:, adjacent_fn:, target_fn:)
-    to_explore = [source]
-    explored = Set.new([source])
-    parent = {}
+positions = Set.new([starting_pos])
+target_step.times do
+    new_positions = Set.new
+    positions.each do |pos|
+        DIRS.each do |dir|
+            new_pos = pos.step(dir)
+            next unless new_pos.valid?
 
-    while node = to_explore.shift
-      if target_fn.call(node)
-        path = []
-        while node
-          path.unshift node
-          node = parent[node]
+            new_positions << new_pos
         end
-        return path
-      end
-
-      adjacent_fn.call(node).each do |child|
-        if explored.add?(child)
-          parent[child] = node
-          to_explore << child
-        end
-      end
     end
 
-    nil
+    positions = new_positions
 end
 
-State = Struct.new(:depth, :pos)
-
-TARGET = 64
-matching = []
-bfs(
-    source: State.new(0, starting_pos),
-    adjacent_fn: proc do |state|
-        next [] if state.depth > TARGET
-
-        DIRS.filter_map do |dir|
-            new_pos = state.pos.step(dir)
-            next unless new_pos.valid?
-            
-            State.new(state.depth + 1, new_pos)
-        end
-    end,
-    target_fn: proc do |state|
-        if state.depth == TARGET
-            matching << state
-        end
-
-        false
-    end,
-)
-
-pp matching.length
+puts positions.length
