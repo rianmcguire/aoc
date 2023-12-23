@@ -26,7 +26,7 @@ Brick = Struct.new(:id, :a, :b) do
     end
 
     def coords
-        (a[axis]..b[axis]).map do |n|
+        @coords ||= (a[axis]..b[axis]).map do |n|
             c = a.dup
             c[axis] = n
             c
