@@ -72,10 +72,10 @@ def dfs_max_weight(start:, adjacent_fn:, target_fn:)
                 max_weight = weight
             end
         end
-    
+
         adjacent_fn.call(node).filter_map do |child, weight|
             next if path.include?(child)
-    
+
             new_path = path.dup
             new_path[child] = weight
             stack.push([child, new_path])
@@ -99,7 +99,7 @@ vertices.keys.combination(2).each do |a, b|
                 new_pos = pos.step(dir)
                 next unless X_RANGE.include?(new_pos.x) && Y_RANGE.include?(new_pos.y)
                 next if vertices.include?(new_pos) && new_pos != b
-        
+
                 current_cell = GRID[pos.y][pos.x]
                 new_cell = GRID[new_pos.y][new_pos.x]
                 if new_cell == "#"
@@ -108,7 +108,7 @@ vertices.keys.combination(2).each do |a, b|
                     result << [new_pos, 1]
                 end
             end
-        
+
             result
         end,
         target_fn: proc do |pos, cost|
@@ -137,12 +137,25 @@ end
 # puts "}"
 
 # Search the new simpified graph for the maximum weighted path
-dfs_max_weight(
-    start: start,
-    adjacent_fn: proc do |pos|
-        vertices[pos].map(&:to_a)
-    end,
-    target_fn: proc do |pos, cost|
-        pos == target
+$vertices = vertices
+$target = target
+def max_weight(node, visited = Set.new)
+    if node == $target
+        return 0
     end
-).then { puts _1 }
+
+    visited.add node
+
+    result = $vertices[node].filter_map do |edge|
+        next if visited.include?(edge.target)
+
+        weight = max_weight(edge.target, visited)
+        weight + edge.weight if weight
+    end.max
+
+    visited.delete node
+
+    result
+end
+
+puts max_weight(start)
