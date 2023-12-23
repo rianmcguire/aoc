@@ -27,7 +27,7 @@ start = Pos.new(GRID.first.index("."), 0)
 target = Pos.new(GRID.last.index("."), GRID.length - 1)
 
 def dfs(start:, adjacent_fn:, target_fn:)
-    stack = [[start, [start]]]
+    stack = [[start, Set.new([start])]]
     lengths = []
 
     while (node, path = stack.pop)
@@ -37,8 +37,10 @@ def dfs(start:, adjacent_fn:, target_fn:)
     
         adjacent_fn.call(node).filter_map do |child|
             next if path.include?(child)
-    
-            stack.push([child, [*path, child]])
+
+            new_path = path.dup
+            new_path << child
+            stack.push([child, new_path])
         end
     end
 
