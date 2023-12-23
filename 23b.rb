@@ -21,6 +21,10 @@ Pos = Struct.new(:x, :y) do
             Pos.new(x - 1, y)
         end
     end
+
+    # def label
+    #     "\"#{x}_#{y}\""
+    # end
 end
 
 start = Pos.new(GRID.first.index("."), 0)
@@ -117,6 +121,20 @@ vertices.keys.combination(2).each do |a, b|
         vertices[b] << Edge.new(a, max_length)
     end
 end
+
+# already_output = Set.new
+# puts "graph G {"
+# vertices.each do |v, edges|
+#     if v == start || v == target
+#         puts "#{v.label} [shape=box];"
+#     end
+#     edges.each do |e|
+#         if already_output.add?([v, e.target]) && already_output.add?([e.target, v])
+#             puts "#{v.label} -- #{e.target.label} [label=#{e.weight}];"
+#         end
+#     end
+# end
+# puts "}"
 
 # Search the new simpified graph for the maximum weighted path
 dfs_max_weight(
