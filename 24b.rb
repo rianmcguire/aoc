@@ -133,17 +133,20 @@ def prime_power_factorisation(n)
     end
 end
 
-def search(hailstones)
-    (-300..-1).each do |vx|
-        # Can't have a velocity identical to a hailstone
-        next if hailstones.any? {|h| h.v.x == vx}
-
+def search(hailstones, axis)
+    (-300..300).filter do |vx|
         prime_power_congruences = {}
-        good = hailstones.all? do |h, i|
-            a, m = find_all_solutions(-1, h.v.x - vx, -h.p.x, 0, 999999999999999, 1, 999999999999999)
-            # puts "px = #{a} mod #{m}"
+        hailstones.all? do |h, i|
+            if h.v[axis] - vx == 0
+                next true
+            end
+
+            a, m = find_all_solutions(-1, h.v[axis] - vx, -h.p[axis], 0, 999999999999999, 1, 999999999999999)
+            # x = a mod m
 
             # https://stackoverflow.com/questions/24740533/determining-whether-a-system-of-congruences-has-a-solution
+            a = a.abs
+            m = m.abs
             result = true
             prime_power_factorisation(m) do |p, pe|
                 new_ppc = [pe, a % pe]
@@ -161,12 +164,12 @@ def search(hailstones)
 
             result
         end
-
-        if good
-            return vx
-        end
     end
 end
 
-vx = search(hailstones)
-puts "vx=#{vx}"
+v = Pos.new(
+    search(hailstones, :x).first,
+    search(hailstones, :y).first,
+    search(hailstones, :z).first,
+)
+pp v
