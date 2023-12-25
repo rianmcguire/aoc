@@ -9,7 +9,7 @@ def label(file)
   file.gsub(".exe", "")
 end
 
-files = Dir["*.rb", "*.exe"].sort.reject { File.identical?(_1, __FILE__) || _1.include?("bench") }.filter { prefix_filter.nil? || _1.start_with?(prefix_filter) }
+files = Dir["*.rb", "*.py", "*.exe"].sort.reject { File.identical?(_1, __FILE__) || _1.include?("bench") }.filter { prefix_filter.nil? || _1.start_with?(prefix_filter) }
 max_length = files.map { label(_1).length }.max
 
 files.each do |file|
