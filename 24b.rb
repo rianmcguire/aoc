@@ -12,100 +12,6 @@ hailstones = ARGF.each_line.map do |line|
     Hailstone.new(Pos.new(*numbers[0..2]), Pos.new(*numbers[3..]))
 end
 
-# https://cp-algorithms.com/algebra/linear-diophantine-equation.html
-def gcd(a, b)
-    if b == 0
-        x = 1
-        y = 0
-        return [a, x, y]
-    end
-
-    d, x1, y1 = gcd(b, a % b)
-    x = y1
-    y = x1 - y1 * (a / b)
-
-    return [d, x, y]
-end
-
-def find_any_solution(a, b, c)
-    g, x0, y0 = gcd(a.abs, b.abs)
-    return nil if c % g != 0
-
-    x0 *= c / g
-    y0 *= c / g
-    x0 = -x0 if a < 0
-    y0 = -y0 if b < 0
-
-    [x0, y0, g]
-end
-
-def shift_solution(x, y, a, b, cnt)
-    x += cnt * b
-    y -= cnt * a
-
-    [x, y]
-end
-
-def find_all_solutions(a, b, c, minx, maxx, miny, maxy)
-    x, y, g = find_any_solution(a, b, c)
-    return 0 if !x
-    a /= g
-    b /= g
-
-    sign_a = a > 0 ? +1 : -1
-    sign_b = b > 0 ? +1 : -1
-
-    x, y = shift_solution(x, y, a, b, (minx - x) / b)
-    if x < minx
-        x, y = shift_solution(x, y, a, b, sign_b)
-    end
-    if x > maxx
-        return 0
-    end
-    lx1 = x
-
-    x, y = shift_solution(x, y, a, b, (maxx - x) / b)
-    if x > maxx
-        x, y = shift_solution(x, y, a, b, -sign_b)
-    end
-    rx1 = x
-
-    x, y = shift_solution(x, y, a, b, -(miny - y) / a)
-    if y < miny
-        x, y = shift_solution(x, y, a, b, -sign_a)
-    end
-    if y > maxy
-        return 0
-    end
-    lx2 = x
-
-    x, y = shift_solution(x, y, a, b, -(maxy - y) / a)
-    if y > maxy
-        x, y = shift_solution(x, y, a, b, sign_a)
-    end
-    rx2 = x
-
-    if lx2 > rx2
-        temp = lx2
-        lx2 = rx2
-        rx2 = temp
-    end
-    lx = [lx1, lx2].max
-    rx = [rx1, rx2].min
-
-    # puts "lx=#{lx}"
-    # puts "g=#{g}"
-    # puts "x = #{lx} + k * #{b / g}"
-    #     y = (c - a * x) / b
-
-    # if lx > rx
-    #     return nil
-    # end
-    # return (rx - lx) / b.abs + 1
-
-    [lx, b / g]
-end
-
 def compatible(old_ppc, new_ppc)
     m, a = old_ppc
     n, b = new_ppc
@@ -125,22 +31,40 @@ def prime_power_factorisation(n)
     end
 end
 
-def search(hailstones, axis)
+# Try a range of rock speeds on a single axis, see if it's possible that a rock with that speed would be able to hit
+# all hailstones.
+def find_v(hailstones, axis)
     # TODO: derive this range
-    (-300..300).filter do |vx|
+    (-300..300).filter do |rock_v|
+        # The rock and a hailstone collide (on this axis) when:
+        # rock_p + rock_v * t = hailstone_p + hailstone_v * t
+        #
+        # Re-arrange to get:
+        # rock_p = hailstone_p + t * (hailstone_v - rock_v)
+        #
+        # There is more than one solution, because the exact value depends on the value of t for this hailstone (which
+        # we don't know), but as long as they're both positioned at some multiple of the speed difference
+        # (hailstone_v - rock_v), they will be able to collide.
+        #
+        # That gives us this congruence:
+        # rock_p ≡ hailstone_p (mod hailstone_v - rock_v)
+        #
+        # Across all hailstones, the rock_p must be the same, so we have a system of congruences. If all hailstones
+        # have a congruent rock_p under this rock_v, we've found a valid speed for this axis.
+
+        # https://stackoverflow.com/questions/24740533/determining-whether-a-system-of-congruences-has-a-solution
         prime_power_congruences = {}
         hailstones.all? do |h, i|
-            if h.v[axis] - vx == 0
+            # x ≡ a (mod m)
+            a = h.p[axis]
+            m = h.v[axis] - rock_v
+
+            if m == 0
+                # The hailstone and the rock have the same speed. That's not a problem as long as they start in the
+                # same position on this axis.
                 next true
             end
 
-            # TODO: remove these limits and maybe the whole find_all_solutions thing. I think it all boils down to some
-            # gcd stuff
-            a, m = find_all_solutions(-1, h.v[axis] - vx, -h.p[axis], 0, 999999999999999, 1, 999999999999999)
-            # px = a mod m
-            # x = a mod m
-
-            # https://stackoverflow.com/questions/24740533/determining-whether-a-system-of-congruences-has-a-solution
             a = a.abs
             m = m.abs
             result = true
@@ -164,11 +88,12 @@ def search(hailstones, axis)
 end
 
 # Find the velocity of the rock through congruences
-# TODO: why does the example data have multiple solutions for each axis? Is something wrong, or should we be searching them?
+# TODO: why does the example data have multiple solutions for each axis? Is something wrong, or should we be searching
+# for valid combinations?
 rock_v = Pos.new(
-    search(hailstones, :x).first,
-    search(hailstones, :y).first,
-    search(hailstones, :z).first,
+    find_v(hailstones, :x).first,
+    find_v(hailstones, :y).first,
+    find_v(hailstones, :z).first,
 )
 
 # If a hailstone has the same velocity component as the rock, the rock must start in the same position on that
