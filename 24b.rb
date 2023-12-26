@@ -2,26 +2,17 @@
 
 require 'prime'
 
-Pos = Struct.new(:x, :y, :z) do
-    def +(other)
-        Pos.new(*self.to_a.zip(other.to_a).map { |a,b| a + b})
-    end
+AXIS = [:x, :y, :z]
 
-    def *(n)
-        Pos.new(*to_a.map { _1 * n})
-    end
-end
-Hailstone = Struct.new(:p, :v) do
-    def at_t(t)
-        p + v * t
-    end
-end
+Pos = Struct.new(*AXIS)
+Hailstone = Struct.new(:p, :v)
 
 hailstones = ARGF.each_line.map do |line|
     numbers = line.chomp.scan(/[\-\d]+/).map(&:to_i)
     Hailstone.new(Pos.new(*numbers[0..2]), Pos.new(*numbers[3..]))
 end
 
+# https://cp-algorithms.com/algebra/linear-diophantine-equation.html
 def gcd(a, b)
     if b == 0
         x = 1
@@ -121,6 +112,7 @@ def compatible(old_ppc, new_ppc)
     (a - b) % ([m, n].min) == 0
 end
 
+# TODO: replace this with Prime.prime_division. why doesn't it give the same results?
 def prime_power_factorisation(n)
     while n > 1
         p = (2...n+1).filter { n % _1 == 0 }.first
@@ -134,6 +126,7 @@ def prime_power_factorisation(n)
 end
 
 def search(hailstones, axis)
+    # TODO: derive this range
     (-300..300).filter do |vx|
         prime_power_congruences = {}
         hailstones.all? do |h, i|
@@ -141,7 +134,10 @@ def search(hailstones, axis)
                 next true
             end
 
+            # TODO: remove these limits and maybe the whole find_all_solutions thing. I think it all boils down to some
+            # gcd stuff
             a, m = find_all_solutions(-1, h.v[axis] - vx, -h.p[axis], 0, 999999999999999, 1, 999999999999999)
+            # px = a mod m
             # x = a mod m
 
             # https://stackoverflow.com/questions/24740533/determining-whether-a-system-of-congruences-has-a-solution
@@ -167,9 +163,34 @@ def search(hailstones, axis)
     end
 end
 
-v = Pos.new(
+# Find the velocity of the rock through congruences
+# TODO: why does the example data have multiple solutions for each axis? Is something wrong, or should we be searching them?
+rock_v = Pos.new(
     search(hailstones, :x).first,
     search(hailstones, :y).first,
     search(hailstones, :z).first,
 )
-pp v
+
+# If a hailstone has the same velocity component as the rock, the rock must start in the same position on that
+# axis, otherwise they would never collide. We can use this fact to bootstrap our solution.
+rock_p = Pos.new
+hailstones.each do |h|
+    AXIS.each do |axis|
+        if h.v[axis] == rock_v[axis]
+            rock_p[axis] = h.p[axis]
+        end
+    end
+end
+
+# We have enough information to calculate the time of collision for an arbitrary hailstone now
+h = hailstones.first
+known_axis = AXIS.find { rock_p[_1] }
+t = (h.p[known_axis] - rock_p[known_axis]) / (rock_v[known_axis] - h.v[known_axis])
+
+# Fill in any starting values we don't have
+AXIS.each do |axis|
+    next if rock_p[axis]
+    rock_p[axis] = h.p[axis] + h.v[axis] * t - rock_v[axis] * t
+end
+
+puts rock_p.to_a.sum
