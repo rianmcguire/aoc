@@ -12,30 +12,24 @@ hailstones = ARGF.each_line.map do |line|
     Hailstone.new(Pos.new(*numbers[0..2]), Pos.new(*numbers[3..]))
 end
 
-def compatible(old_ppc, new_ppc)
-    m, a = old_ppc
-    n, b = new_ppc
-    (a - b) % ([m, n].min) == 0
-end
-
-# TODO: replace this with Prime.prime_division. why doesn't it give the same results?
-def prime_power_factorisation(n)
-    while n > 1
-        p = (2...n+1).filter { n % _1 == 0 }.first
-        pe = 1
-        while n % p == 0
-            n = n / p
-            pe = pe*p
+def outwards_from_zero
+    Enumerator.new do |yielder|
+        n = 1
+        loop do
+            yielder << n
+            yielder << -n
+            n += 1
         end
-        yield [p, pe]
     end
 end
 
 # Try a range of rock speeds on a single axis, see if it's possible that a rock with that speed would be able to hit
 # all hailstones.
+#
+# TODO: why does the example data have multiple solutions for each axis? Is something wrong, or should we be searching
+# for valid combinations?
 def find_v(hailstones, axis)
-    # TODO: derive this range
-    (-300..300).filter do |rock_v|
+    outwards_from_zero.find do |rock_v|
         # The rock and a hailstone collide (on this axis) when:
         # rock_p + rock_v * t = hailstone_p + hailstone_v * t
         #
@@ -49,26 +43,28 @@ def find_v(hailstones, axis)
         # That gives us this congruence:
         # rock_p ≡ hailstone_p (mod hailstone_v - rock_v)
         #
-        # Across all hailstones, the rock_p must be the same, so we have a system of congruences. If all hailstones
-        # have a congruent rock_p under this rock_v, we've found a valid speed for this axis.
+        # Across all hailstones, the rock_p must be the same, so we have a "system of congruences". If all hailstones
+        # have a congruent rock_p with this rock_v, we've found a valid speed for this axis.
 
         # https://stackoverflow.com/questions/24740533/determining-whether-a-system-of-congruences-has-a-solution
         prime_power_congruences = {}
         hailstones.all? do |h, i|
-            # x ≡ a (mod m)
+            # x ≡ a (mod n)
             a = h.p[axis]
-            m = h.v[axis] - rock_v
+            n = h.v[axis] - rock_v
 
-            if m == 0
-                # The hailstone and the rock have the same speed. That's not a problem as long as they start in the
-                # same position on this axis.
+            if n == 0
+                # The hailstone and the rock have the same speed. This speed could still be valid, as long as the
+                # rock and the hailstone start at the same position on this axis.
                 next true
             end
 
-            a = a.abs
-            m = m.abs
+            # Apply the https://en.wikipedia.org/wiki/Chinese_remainder_theorem to check if there's a solution to the
+            # system of congruences. To do that, the moduluses need to be coprime. Factor each modulus into its prime
+            # powers, and check for compatibility as we go.
             result = true
-            prime_power_factorisation(m) do |p, pe|
+            Prime.prime_division(n).each do |p, e|
+                pe = p ** e
                 new_ppc = [pe, a % pe]
                 if old_ppc = prime_power_congruences[p]
                     if !compatible(new_ppc, old_ppc)
@@ -87,13 +83,18 @@ def find_v(hailstones, axis)
     end
 end
 
+def compatible(old_ppc, new_ppc)
+    # Is x ≡ a (mod m) compatible with x ≡ b (mod n)?
+    m, a = old_ppc
+    n, b = new_ppc
+    (a - b) % ([m, n].min) == 0
+end
+
 # Find the velocity of the rock through congruences
-# TODO: why does the example data have multiple solutions for each axis? Is something wrong, or should we be searching
-# for valid combinations?
 rock_v = Pos.new(
-    find_v(hailstones, :x).first,
-    find_v(hailstones, :y).first,
-    find_v(hailstones, :z).first,
+    find_v(hailstones, :x),
+    find_v(hailstones, :y),
+    find_v(hailstones, :z),
 )
 
 # If a hailstone has the same velocity component as the rock, the rock must start in the same position on that
