@@ -26,8 +26,9 @@ end
 # Try a range of rock speeds on a single axis, see if it's possible that a rock with that speed would be able to hit
 # all hailstones.
 #
-# TODO: why does the example data have multiple solutions for each axis? Is something wrong, or should we be searching
-# for valid combinations?
+# TODO: The example input (but not the full input) has multiple solutions for each axis. There are probably some more
+# cases that need to be detected and excluded as impossible. It works well enough now as the first case that matches
+# is the one we want.
 def find_v(hailstones, axis)
     outwards_from_zero.find do |rock_v|
         # The rock and a hailstone collide (on this axis) when:
@@ -46,6 +47,16 @@ def find_v(hailstones, axis)
         # Across all hailstones, the rock_p must be the same, so we have a "system of congruences". If all hailstones
         # have a congruent rock_p with this rock_v, we've found a valid speed for this axis.
 
+        # Special case: the hailstone and the rock have the same speed. This speed could still be valid, as long as the
+        # rock and the hailstone start at the same position on this axis.
+        known_rock_ps = hailstones.filter { |h| h.v[axis] == rock_v }.map { |h| h.p[axis] }
+        if known_rock_ps.uniq.length > 1
+            # There are multiple hailstones with the same speed that would require different rock positions.
+            # This speed won't work.
+            next false
+        end
+        known_rock_p = known_rock_ps.first
+
         # https://stackoverflow.com/questions/24740533/determining-whether-a-system-of-congruences-has-a-solution
         prime_power_congruences = {}
         hailstones.all? do |h, i|
@@ -53,10 +64,13 @@ def find_v(hailstones, axis)
             a = h.p[axis]
             n = h.v[axis] - rock_v
 
-            if n == 0
-                # The hailstone and the rock have the same speed. This speed could still be valid, as long as the
-                # rock and the hailstone start at the same position on this axis.
-                next true
+            # Same speed - this is handled via known_rock_p
+            next true if n == 0
+
+            # If we have a special case "same speed" hailstone that fixes the rock position, ensure that position is
+            # still congruent with the other hailstones.
+            if known_rock_p && (known_rock_p % n) != (a % n)
+                next false
             end
 
             # Apply the https://en.wikipedia.org/wiki/Chinese_remainder_theorem to check if there's a solution to the
@@ -109,8 +123,8 @@ hailstones.each do |h|
 end
 
 # We have enough information to calculate the time of collision for an arbitrary hailstone now
-h = hailstones.first
 known_axis = AXIS.find { rock_p[_1] }
+h = hailstones.find { |h| h.v[known_axis] != rock_v[known_axis] }
 t = (h.p[known_axis] - rock_p[known_axis]) / (rock_v[known_axis] - h.v[known_axis])
 
 # Fill in any starting values we don't have
