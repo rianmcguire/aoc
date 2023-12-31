@@ -1,4 +1,5 @@
-PROGRAMS := $(patsubst %, %.exe, $(wildcard *.c *.zig *.go *.rs))
+.SUFFIXES:
+PROGRAMS := $(patsubst %, %.exe, $(wildcard *.c *.zig *.go *.rs *.d))
 CFLAGS = -Wall -Werror -O3
 
 default: $(PROGRAMS)
@@ -14,6 +15,9 @@ default: $(PROGRAMS)
 
 %.rs.exe: %.rs
 	rustc -O -o $@ $<
+
+%.d.exe: %.d
+	ldc2 -O --release $< --of=$@
 
 clean:
 	-rm -f $(PROGRAMS)
