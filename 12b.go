@@ -20,6 +20,7 @@ func main() {
 
 	scanner := bufio.NewScanner(file)
 	sum := int64(0)
+	memo := make(map[memoKey]int64)
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Split(line, " ")
@@ -35,7 +36,8 @@ func main() {
 			}
 			counts = append(counts, count)
 		}
-		sum += search([]rune(springs), counts, 0, 0, make(map[memoKey]int64))
+		clear(memo)
+		sum += search([]rune(springs), counts, 0, 0, memo)
 	}
 
 	fmt.Println(sum)
