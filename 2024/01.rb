@@ -11,6 +11,6 @@ end
 left.sort!
 right.sort!
 
-left.zip(right).map do |l, r|
+left.zip(right).sum do |l, r|
   (l - r).abs
-end.sum.then { puts _1 }
+end.then { puts _1 }

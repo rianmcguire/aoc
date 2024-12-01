@@ -8,6 +8,8 @@ ARGF.each_line do |line|
   right << b
 end
 
-left.map do |l|
-  l * right.count { _1 == l }
-end.sum.then { puts _1 }
+right_counts = right.tally
+
+left.sum do |l|
+  l * right_counts.fetch(l, 0)
+end.then { puts _1 }
