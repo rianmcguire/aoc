@@ -1,24 +1,7 @@
 #!/usr/bin/env ruby
 
-rules, updates = ARGF.read.split("\n\n")
-
-RULES = rules.each_line.map { _1.chomp.split("|") }
-updates = updates.each_line.map { _1.chomp.split(",") }
-
-def correct?(update)
-  rules_for_update = RULES.filter { |a,b| update.include?(a) && update.include?(b) }
-
-  update.each do |n|
-    rules_for_n = rules_for_update.filter { |r| r.include?(n) }
-    rules_for_n.each do |before, after|
-      return false if update.index(before) > update.index(after)
-    end
-  end
-
-  true
-end
-
-require 'tsort'
+require "tsort"
+require "set"
 
 class Deps < Hash
   include TSort
@@ -29,14 +12,20 @@ class Deps < Hash
   end
 end
 
-def reorder(update)
-  rules_for_update = RULES.filter { |a,b|  update.include?(a) && update.include?(b) }
+rules, updates = ARGF.read.split("\n\n")
 
-  deps = Deps.new { |h,k| h[k] = [] }
+RULES = rules.each_line.map { _1.chomp.split("|") }
+updates = updates.each_line.map { _1.chomp.split(",") }
+
+def reorder(update)
+  update_set = Set.new(update)
+  rules_for_update = RULES.filter { |a, b| update_set.include?(a) && update_set.include?(b) }
+
+  deps = Deps.new
   update.each do |n|
     deps[n] = []
   end
-  rules_for_update.each do |before,after|
+  rules_for_update.each do |before, after|
     deps[after] << before
   end
 
@@ -45,9 +34,9 @@ end
 
 result = 0
 updates.each do |update|
-  if !correct?(update)
-    fixed = reorder(update)
-    raise "wtf" unless correct?(fixed)
+  fixed = reorder(update)
+  if fixed != update
+    # If the order changed, it was incorrectly ordered
     result += fixed[fixed.length / 2].to_i
   end
 end

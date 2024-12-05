@@ -1,27 +1,43 @@
 #!/usr/bin/env ruby
 
+require "tsort"
+require "set"
+
+class Deps < Hash
+  include TSort
+
+  alias tsort_each_node each_key
+  def tsort_each_child(node, &block)
+    fetch(node).each(&block)
+  end
+end
+
 rules, updates = ARGF.read.split("\n\n")
 
 RULES = rules.each_line.map { _1.chomp.split("|") }
 updates = updates.each_line.map { _1.chomp.split(",") }
 
-def correct?(update)
-  rules_for_update = RULES.filter { |a,b| update.include?(a) && update.include?(b) }
+def reorder(update)
+  update_set = Set.new(update)
+  rules_for_update = RULES.filter { |a, b| update_set.include?(a) && update_set.include?(b) }
 
+  deps = Deps.new
   update.each do |n|
-    rules_for_n = rules_for_update.filter { |r| r.include?(n) }
-    rules_for_n.each do |before, after|
-      return false if update.index(before) > update.index(after)
-    end
+    deps[n] = []
+  end
+  rules_for_update.each do |before, after|
+    deps[after] << before
   end
 
-  true
+  deps.tsort
 end
 
 result = 0
 updates.each do |update|
-  if correct?(update)
-    result += update[update.length / 2].to_i
+  fixed = reorder(update)
+  if fixed == update
+    # If the order is the same, it was correctly ordered
+    result += fixed[fixed.length / 2].to_i
   end
 end
 puts result
