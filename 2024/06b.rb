@@ -43,52 +43,32 @@ end
 Y_RANGE = 0...GRID.length
 X_RANGE = 0...GRID.first.length
 
-DIRS_AT_POINT ||= Hash.new { |h,k| h[k] = [] }
-
-dir = :n
-pos = START
-loop do
-  DIRS_AT_POINT[pos] << dir
-
-  next_pos = pos.step(dir)
-  break if !next_pos.valid?
-
-  if next_pos.obstacle?
-    dir = turn_right(dir)
-  else
-    pos = next_pos
-  end
-end
-
-def loops?(new_obstacle)
-  visited = Set.new
-
-  dir = :n
-  pos = START
+def loops?(pos, dir, new_obstacle, visited)
   loop do
-    return true if !visited.add?([pos, dir])
-
     next_pos = pos.step(dir)
     return false if !next_pos.valid?
 
     if next_pos.obstacle? || next_pos == new_obstacle
       dir = turn_right(dir)
     else
+      if !new_obstacle
+        # Try placing a obstacle in front of the current position
+        would_block_path_to_here = DIRS.any? { |dir| visited.include?([next_pos, dir]) }
+        if !would_block_path_to_here && loops?(pos, dir, next_pos, visited.dup)
+          yield next_pos
+        end
+      end
+
       pos = next_pos
     end
+
+    return true if !visited.add?([pos, dir])
   end
 end
 
-# TODO: we can search this as we go, rather than checking all the positions afterwards
 result = Set.new
-DIRS_AT_POINT.each do |pos, dirs|
-  dirs.each do |dir|
-    # If there was an obstacle in front of us here, would we loop?
-    obstacle = pos.step(dir)
-    if obstacle.valid? && !obstacle.obstacle? && loops?(obstacle)
-      result << obstacle
-    end
-  end
+loops?(START, :n, nil, Set.new) do |obstacle|
+  result << obstacle
 end
 
 puts result.length
