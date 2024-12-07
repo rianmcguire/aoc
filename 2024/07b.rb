@@ -1,42 +1,59 @@
 #!/usr/bin/env ruby
 
+RubyVM::YJIT.enable
+
 OPS = [:+, :*, :concat_digits]
 
 class Numeric
   def concat_digits(n)
-    (self.to_s + n.to_s).to_i
+    power = 10
+    while n >= power
+      power *= 10
+    end
+    self * power + n
   end
 end
 
-Eqn = Struct.new(:target, :values) do
+# There's a limited set of permutations. Avoid re-generating them for every equation we test.
+module MemoizedRepeatedPermutation
+  def repeated_permutation(n)
+    @repeated_permutation ||= {}
+    @repeated_permutation[n] ||= super.to_a
+  end
+end
+Array.prepend(MemoizedRepeatedPermutation)
+
+Eqn = Data.define(:target, :values) do
   def n_gaps
     values.length - 1
   end
 
-  def evaluate(operators)
+  def valid_with?(operators)
     result = values[0]
     values.drop(1).zip(operators) do |n, op|
-      result = result.send(op, n)
+      return false if result > target
+      case op
+      when :+ then result += n
+      when :* then result *= n
+      when :concat_digits then result = result.concat_digits(n)
+      end
     end
-    result
+    result == target
   end
-end
 
-eqns = ARGF.each_line.map do |line|
-  target, values = line.split(": ")
-  target = target.to_i
-  values = values.split.map(&:to_i)
-  Eqn.new(target, values)
+  def solveable?
+    OPS.repeated_permutation(n_gaps).any? { |operators| valid_with?(operators) }
+  end
 end
 
 result = 0
-eqns.each do |eqn|
-  OPS.repeated_permutation(eqn.n_gaps).each do |operators|
-    if eqn.evaluate(operators) == eqn.target
-      result += eqn.target
-      break
-    end
-  end
+ARGF.each_line do |line|
+  target, values = line.split(": ")
+  target = target.to_i
+  values = values.split.map(&:to_i)
+  eqn = Eqn.new(target, values)
+
+  result += eqn.target if eqn.solveable?
 end
 
 puts result
