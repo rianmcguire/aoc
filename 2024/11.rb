@@ -1,22 +1,23 @@
 #!/usr/bin/env ruby
 
-stones = ARGF.read.split
-
-25.times do
-  new_stones = []
-
-  stones.each do |s|
-    if s == "0"
-      new_stones << "1"
-    elsif s.length.even?
-      new_stones << s[...s.length / 2].to_i.to_s
-      new_stones << s[s.length / 2..].to_i.to_s
-    else
-      new_stones << (s.to_i * 2024).to_s
-    end
+def transform(s)
+  if s == "0"
+    ["1"]
+  elsif s.length.even?
+    [s[...s.length / 2], s[s.length / 2..].to_i.to_s]
+  else
+    [(s.to_i * 2024).to_s]
   end
-
-  stones = new_stones
 end
 
-puts stones.length
+LENGTH_MEMO = {}
+def length_after_cycles(stone, cycles)
+  return 1 if cycles == 0
+
+  LENGTH_MEMO[[stone, cycles]] ||= (
+    transform(stone).sum { |s| length_after_cycles(s, cycles - 1) }
+  )
+end
+
+stones = ARGF.read.split
+puts stones.sum { |s| length_after_cycles(s, 25) }
