@@ -11,14 +11,12 @@ Pos = Struct.new(:x, :y) do
 end
 Robot = Struct.new(:p, :v, :initial)
 
-# X_SIZE = 11
-# Y_SIZE = 7
-X_SIZE = 101
-Y_SIZE = 103
-
 robots = ARGF.each_line.flat_map do |line|
   line.scan(/-?\d+/).map(&:to_i).each_slice(2).map { Pos.new(*_1) }.each_slice(2).map { Robot.new(*_1, _1.first) }
 end
+
+X_SIZE = robots.map { _1.p.x }.max + 1
+Y_SIZE = robots.map { _1.p.y }.max + 1
 
 looped = Set.new
 100.times do
