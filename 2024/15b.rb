@@ -32,50 +32,38 @@ end
 
 def try_move(pos, dir, ignore=nil)
   new_pos = pos.step(dir)
-  c = $grid[new_pos.y][new_pos.x]
 
-  case c
+  case c = $grid[new_pos.y][new_pos.x]
   when "#"
-    # Can't move
-    false
-  when "."
-    $grid[new_pos.y][new_pos.x] = $grid[pos.y][pos.x]
-    $grid[pos.y][pos.x] = "."
-    new_pos
+    # Wall - can't move
+    return false
   when "[", "]"
+    # Try to push the box in the same direction
     if c == "["
       other_half = new_pos.step(">")
     else
       other_half = new_pos.step("<")
     end
 
-    if ignore != other_half
-      backup_grid = $grid.map(&:dup)
-      if try_move(other_half, dir, new_pos)
-        if try_move(new_pos, dir)
-          $grid[new_pos.y][new_pos.x] = $grid[pos.y][pos.x]
-          $grid[pos.y][pos.x] = "."
-          new_pos
-        else
-          # Roll back other_half move
-          $grid = backup_grid
-          false
-        end
-      else
-        false
-      end
-    else
-      if try_move(new_pos, dir)
-        $grid[new_pos.y][new_pos.x] = $grid[pos.y][pos.x]
-        $grid[pos.y][pos.x] = "."
-        new_pos
-      else
-        false
-      end
+    backup_grid = $grid.map(&:dup)
+
+    if ignore != other_half && !try_move(other_half, dir, new_pos)
+      # The other half of the box can't move, so this half can't move either
+      return false
     end
-  else
-    raise "wtf: #{c.inspect}"
+
+    if !try_move(new_pos, dir)
+      # Roll back other_half move if we couldn't move this half
+      $grid = backup_grid
+      # If the box can't move, we can't move
+      return false
+    end
   end
+
+  # The target space is empty - we can move
+  $grid[new_pos.y][new_pos.x] = $grid[pos.y][pos.x]
+  $grid[pos.y][pos.x] = "."
+  new_pos
 end
 
 moves.chars.each do |m|

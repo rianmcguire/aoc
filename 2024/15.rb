@@ -34,23 +34,20 @@ def try_move(pos, dir)
 
   case GRID[new_pos.y][new_pos.x]
   when "#"
-    # Can't move
-    false
-  when "."
-    GRID[new_pos.y][new_pos.x] = GRID[pos.y][pos.x]
-    GRID[pos.y][pos.x] = "."
-    new_pos
+    # Wall - can't move
+    return false
   when "O"
-    if try_move(new_pos, dir)
-      GRID[new_pos.y][new_pos.x] = GRID[pos.y][pos.x]
-      GRID[pos.y][pos.x] = "."
-      new_pos
-    else
-      false
+    # Try to push the box in the same direction
+    if !try_move(new_pos, dir)
+      # If the box can't move, we can't move
+      return false
     end
-  else
-    raise "wtf"
   end
+
+  # The target space is empty - we can move
+  GRID[new_pos.y][new_pos.x] = GRID[pos.y][pos.x]
+  GRID[pos.y][pos.x] = "."
+  new_pos
 end
 
 moves.chars.each do |m|
