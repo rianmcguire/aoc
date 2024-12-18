@@ -8,46 +8,42 @@ registers.each_line do |line|
   REG[register[-1]] = value.to_i
 end
 
-REG["A"] = :a
-
 PROGRAM = program.scan(/\d+/).map(&:to_i)
 
-$out = []
-opcodes = [
+OPCODES = [
   # adv
   -> {
-    REG["A"] = [:>>, REG["A"], combo]
+    REG["A"] = REG["A"] / (2**combo)
   },
   # bxl
   -> {
-    REG["B"] = [:xor, REG["B"], literal]
+    REG["B"] = REG["B"] ^ literal
   },
   # bst
   -> {
-    REG["B"] = [:mod8, combo]
+    REG["B"] = combo % 8
   },
   # jnz
   -> {
     target_ip = literal
-    # Assumes jnz is the last instruction, and we loop until the output is the same length as the program
-    $ip = target_ip if $out.length != PROGRAM.length
+    $ip = target_ip if REG["A"] != 0
   },
   # bxc
   -> {
     _ = literal
-    REG["B"] = [:xor, REG["B"], REG["C"]]
+    REG["B"] = REG["B"] ^ REG["C"]
   },
   # out
   -> {
-    $out << [:mod8, combo]
+    $out = (combo % 8)
   },
   # bdv
   -> {
-    REG["B"] = [:>>, REG["A"], combo]
+    REG["B"] = REG["A"] / (2**combo)
   },
   # cdv
   -> {
-    REG["C"] = [:>>, REG["A"], combo]
+    REG["C"] = REG["A"] / (2**combo)
   },
 ]
 
@@ -75,63 +71,35 @@ def literal
   n
 end
 
-$ip = 0
-while $ip < PROGRAM.length
-  opcode = PROGRAM[$ip]
-  $ip += 1
-  opcodes[opcode].call
-end
+# Assume the program is a loop that depends only on the A register, and shifts 3
+# bits off A on every iteration.
+#
+# Search and build up the value for A backwards, searching for the next 3 bits to add.
+def search(program, a=0)
+  target = program.last
+  return a if !target
 
-pp $out.zip(PROGRAM)
+  # Test every possible 3-bit value
+  a <<= 3
+  (0...2**3).each do |n|
+    REG["A"] = a | n
+    $ip = 0
+    loop do
+      opcode = PROGRAM[$ip]
+      $ip += 1
+      OPCODES[opcode].call
 
-Reverse = Struct.new(:value, :mask) do
-  def eval(exp)
-    op, *rest = exp
-    if op.is_a?(Symbol)
-      send(op, *rest)
-    else
-      op
+      # Break if we were about to loop
+      break if $ip == 0 || $ip > PROGRAM.length - 1
+    end
+
+    # If we got the target output value, go deeper
+    if $out == target && r = search(program[...-1], a | n)
+      return r
     end
   end
 
-  def a
-    self
-  end
-
-  def mod8(a)
-    # TODO: Is this right?
-    Reverse.new(value & 7, 7).eval(a)
-  end
-
-  def xor(a, b)
-    if b.is_a?(Integer)
-      Reverse.new(value ^ b).eval(a)
-    else
-      pp self, a, b
-      PANIC
-    end
-    # # In order for XOR to result in value (within mask), what inputs were possible
-    # # 000 ^ 010 = 010
-    # # 010 ^ 000 = 010
-    # # 101 ^ 111 = 010
-    # # 111 ^ 101 = 010
-    # # ...
-    # (0..mask).to_a.repeated_permutation(2)
-    #   .filter { |x, y| x ^ y == value }
-    #   .each do |x, y|
-    #     [
-    #       Reverse.new(x, mask).eval(a),
-    #       Reverse.new(y, mask).eval(b),
-    #     ]
-    #   end
-  end
-
-  def >>(a, b)
-    Reverse.new(value << b, mask << b).eval(a)
-  end
+  nil
 end
 
-PROGRAM.zip($out).map do |target, expr|
-  r = Reverse.new(target, 7).eval(expr)
-  r.value
-end.reduce(:|).then { puts _1 }
+puts search(PROGRAM)
