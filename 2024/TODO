@@ -1,0 +1,20 @@
+Day 6 part 2:
+06b.rb ---  3.600s  33.2MB
+
+Day 7 part 2:
+07b.rb ---  2.240s 107.0MB
+
+Day 9:
+09.rb  ---  1.240s  14.5MB
+09b.rb ---  7.970s  14.2MB
+
+Day 16 part 2:
+Is there another way to find the equal best paths?
+16b.rb ---  2.000s  46.8MB
+
+Day 17 part 2:
+try the inverse expression evaluation idea again - feels less hard-coded
+
+Day 18 part 2:
+lol brute force. Find the intended solution.
+18b.rb --- 48.970s  31.2MB
