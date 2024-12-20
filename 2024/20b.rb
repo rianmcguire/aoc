@@ -100,21 +100,13 @@ distances = a_star(
   end,
 )
 
-cheat_length = 20
 cheats = []
-distances.each do |cheat_start, original_dist|
-  (-cheat_length..cheat_length).each do |y_off|
-    (-cheat_length..cheat_length).each do |x_off|
-      cheat_end = cheat_start + Pos.new(x_off, y_off)
-      next unless distances.include?(cheat_end)
-      dist = cheat_start.dist(cheat_end)
-      next unless dist <= cheat_length
-
-      saving = original_dist - distances.fetch(cheat_end) - dist
-
-      cheats << saving if saving >= 100
-    end
-  end
+distances.keys.combination(2).each do |a, b|
+  # TODO: distances^2 is still too many comparisons
+  dist = a.dist(b)
+  next unless dist <= 20
+  saving = (distances.fetch(a) - distances.fetch(b)).abs - dist
+  cheats << saving if saving >= 100
 end
 
 puts cheats.length
