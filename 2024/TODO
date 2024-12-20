@@ -18,3 +18,6 @@ try the inverse expression evaluation idea again - feels less hard-coded
 Day 18 part 2:
 lol brute force. Find the intended solution.
 18b.rb --- 48.970s  31.2MB
+
+Day 20 part 2:
+20b.rb ---  5.230s  33.0MB
