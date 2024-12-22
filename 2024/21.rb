@@ -1,52 +1,5 @@
 #!/usr/bin/env ruby
 
-require 'bundler/inline'
-gemfile do
-  source 'https://rubygems.org'
-  gem 'pairing_heap', '3.0.1', require: true
-end
-# https://www.redblobgames.com/pathfinding/a-star/introduction.html#astar
-def a_star(source:, adjacent_fn:, target_fn:, heuristic_fn:, cost_fn:)
-  frontier = PairingHeap::SimplePairingHeap.new
-  frontier.push(source, 0)
-
-  cost_so_far = {}
-  cost_so_far[source] = 0
-  parent = {}
-  paths = []
-  best_cost = 999999
-
-  while !frontier.empty?
-    current = frontier.pop
-
-    if target_fn.call(current)
-      break if cost_so_far[current] > best_cost
-      best_cost = cost_so_far[current]
-
-      # Return path back to start
-      path = []
-      while current
-        path.unshift current
-        current = parent[current]
-      end
-      paths << path
-      next
-    end
-
-    adjacent_fn.call(current).each do |child|
-      new_cost = cost_so_far[current] + cost_fn.call(current, child)
-      if !cost_so_far.include?(child) || new_cost <= cost_so_far[child]
-        cost_so_far[child] = new_cost
-        priority = new_cost + heuristic_fn.call(child)
-        parent[child] = current
-        frontier.push(child, priority)
-      end
-    end
-  end
-
-  paths
-end
-
 def dfs(source:, adjacent_fn:, target_fn:)
   stack = [[source, [source]]]
   paths = []
@@ -65,9 +18,7 @@ def dfs(source:, adjacent_fn:, target_fn:)
     end
   end
 
-  min_length = paths.map(&:length).min
-
-  paths.filter { _1.length == min_length }
+  paths
 end
 
 DIRS = %w(^ v < >)
@@ -124,37 +75,10 @@ Keypad = Struct.new(:grid) do
     end
   end
 
-  # def paths(from, to, cost_fn)
-  #   @path_memo ||= {}
-  #   @path_memo[[from, to]] ||= (
-  #     a_star(
-  #       source: State.new(coord(from), "A"),
-  #       adjacent_fn: proc do |state|
-  #         DIRS.filter_map do |dir|
-  #           new_pos = state.pos.step(dir)
-  #           new_key = key(new_pos)
-  #           next if !new_key || new_key == "."
-
-  #           State.new(new_pos, dir)
-  #         end
-  #       end,
-  #       target_fn: proc do |state|
-  #         key(state.pos) == to
-  #       end,
-  #       cost_fn:,
-  #       heuristic_fn: proc do |pos|
-  #         0
-  #       end,
-  #     ).map do |path|
-  #       path[1..].map(&:last_dir).join
-  #     end
-  #   )
-  # end
-
   def paths(from, to)
     @paths_memo ||= {}
     @paths_memo[[from, to]] ||= (
-      dfs(
+      all_paths = dfs(
         source: State.new(coord(from), "A"),
         adjacent_fn: proc do |state|
           DIRS.filter_map do |dir|
@@ -168,24 +92,16 @@ Keypad = Struct.new(:grid) do
         target_fn: proc do |state|
           key(state.pos) == to
         end,
-      ).map do |path|
-        path[1..].map(&:last_dir).join
-      end
+      )
+
+      min_length = all_paths.map(&:length).min
+
+      all_paths
+        .filter { _1.length == min_length }
+        .map do |path|
+          path[1..].map(&:last_dir).join
+        end
     )
-  end
-
-  def apply(seq)
-    result = []
-    pos = coord("A")
-    seq.chars.each do |c|
-      if c == "A"
-        result << key(pos)
-      else
-        pos = pos.step(c)
-      end
-    end
-
-    result.join
   end
 end
 
@@ -201,44 +117,24 @@ DIRECTIONAL = Keypad.new([
   %w(< v >),
 ])
 
-def sequences(goal, keypad)
-  pos = "A"
-  paths = goal.chars.map do |c|
-    keypad.paths(pos, c).map { |path| [*path, "A"] }.tap { pos = c }
+def cost(from_key, to_key, keypads)
+  keypads[0].paths(from_key, to_key).map { |path| path_cost("#{path}A", keypads[1..]) }.min
+end
+
+def path_cost(path, keypads)
+  return path.length if keypads.empty?
+
+  from = "A"
+  sum = 0
+  path.chars.each do |c|
+    sum += cost(from, c, keypads)
+    from = c
   end
-  Enumerator::Product.new(*paths).map(&:join)
+  sum
 end
 
 codes = ARGF.each_line(chomp: true).to_a
 
-const_cost = proc { |from, to| 1 }
-# directional_cost = proc do |from, to|
-#   DIRECTIONAL.paths(from.last_dir, to.last_dir, zero_cost).length
-# end
 codes.sum do |code|
-  pp code
-  seqs = sequences(code, NUMERIC)
-
-  seqs = seqs.flat_map do |seq|
-    seqs = sequences(seq, DIRECTIONAL)
-  end
-
-  min_length = seqs.map(&:length).min
-  seqs = seqs.filter { _1.length == min_length }
-
-  seqs = seqs.flat_map do |seq|
-    seqs = sequences(seq, DIRECTIONAL)
-  end
-
-  seq = seqs.min_by { _1.length }
-
-  code.to_i * seq.length
+  code.to_i * path_cost(code, [NUMERIC, *([DIRECTIONAL] * 2)])
 end.then { puts _1 }
-
-# puts "----"
-
-# pp DIRECTIONAL.apply("<v<A>>^AvA^A<vA<AA>>^AAvA<^A>AAvA^A<vA>^AA<A>A<v<A>A>^AAAvA<^A>A")
-# pp DIRECTIONAL.apply("<A>Av<<AA>^AA>AvAA^A<vAAA>^A")
-# pp NUMERIC.apply("^A<<^^A>>AvvvA")
-
-# pp sequence("<A>Av<<AA>^AA>AvAA^A<vAAA>^A", DIRECTIONAL, directional_cost)
