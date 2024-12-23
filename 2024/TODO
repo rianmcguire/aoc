@@ -21,3 +21,10 @@ lol brute force. Find the intended solution.
 
 Day 20 part 2:
 20b.rb ---  5.230s  33.0MB
+
+Day 21:
+Incomplete
+
+Day 22 part 2:
+Seems to be the right algorithm - just needs some optimization
+22b.rb ---  1.950s  16.2MB
