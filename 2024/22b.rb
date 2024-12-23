@@ -1,45 +1,49 @@
 #!/usr/bin/env ruby
 
+RubyVM::YJIT.enable
+
+MASK = 2**24 - 1
 def prune(n)
-  n % 2**24
+  n & MASK
 end
 
 # https://en.wikipedia.org/wiki/Xorshift
 def next_number(n)
-  n = prune(n ^ n * 64)
-  n = prune(n ^ n / 32)
-  n = prune(n ^ n * 2048)
-end
-
-def seq(n, length)
-  Enumerator.new do |yielder|
-    length.times do
-      yielder << n
-      n = next_number(n)
-    end
-  end
+  n = prune(n ^ n << 6)
+  n = prune(n ^ n >> 5)
+  n = prune(n ^ n << 11)
 end
 
 initials = ARGF.each_line(chomp: true).map(&:to_i)
 
 PATTERN_LEN = 4
+DIFF_BIT_LENGTH = 5
+HASH_MASK = 2**(DIFF_BIT_LENGTH*PATTERN_LEN) - 1
 
 all_sale_prices = {}
 initials.each do |n|
   sale_prices = {}
 
-  prices = seq(n, 2000 + 1).map { _1 % 10 }
-
   # Run through the sequence and compute a rolling "hash" that identifies the last 4 price changes
   h = 0
-  prices.drop(1).zip(prices).each do |b, a|
-    diff = b - a
-    # The diffs can range from -9 to 9 (19 values), which we can represent in 5 bits.
-    # Shift the diff values through, keeping the last 4*5 = 20 bits
-    h = ((h << 5) | (diff + 9)) % 2**(5*PATTERN_LEN)
+  prev_price = nil
+  2001.times do
+    price = n % 10
 
-    # Record the first price we saw with this change sequence
-    sale_prices[h] ||= b
+    if prev_price
+      diff = price - prev_price
+
+      # The diffs can range from -9 to 9 (19 values), which we can represent in 5 bits.
+      # Shift the diff values through, keeping the last 4*5 = 20 bits
+      h = ((h << DIFF_BIT_LENGTH) | (diff + 9)) & HASH_MASK
+
+      # Record the first price we saw with this change sequence
+      sale_prices[h] ||= price
+    end
+
+    prev_price = price
+
+    n = next_number(n)
   end
 
   # Total up the prices for each change sequence
