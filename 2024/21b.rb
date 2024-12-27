@@ -118,26 +118,26 @@ DIRECTIONAL = Keypad.new([
 ])
 
 def cost(from_key, to_key, keypads)
+  # Out of all possible directional paths between from_key and to_key, use the path that's cheapest to enter on the keypad above
   @cost_memo ||= {}
   @cost_memo[[from_key, to_key, keypads]] ||= (
-    keypads[0].paths(from_key, to_key).map { |path| path_cost("#{path}A", keypads[1..]) }.min
+    keypads[0].paths(from_key, to_key).map { |path| seq_cost("#{path}A", keypads[1..]) }.min
   )
 end
 
-def path_cost(path, keypads)
-  return path.length if keypads.empty?
+# Number of keypresses required to input `seq` through the stack of `keypads`
+def seq_cost(seq, keypads)
+  # If there are no further keypad above, the sequence will be entered by the human, and the cost is the number of keys in the sequence
+  return seq.length if keypads.empty?
 
-  from = "A"
-  sum = 0
-  path.chars.each do |c|
-    sum += cost(from, c, keypads)
-    from = c
+  # Starting at "A", sum up the cost to move between each of the keys in seq
+  ["A", *seq.chars].each_cons(2).sum do |from, to|
+    cost(from, to, keypads)
   end
-  sum
 end
 
 codes = ARGF.each_line(chomp: true).to_a
 
 codes.sum do |code|
-  code.to_i * path_cost(code, [NUMERIC, *([DIRECTIONAL] * 25)])
+  code.to_i * seq_cost(code, [NUMERIC, *([DIRECTIONAL] * 25)])
 end.then { puts _1 }
