@@ -22,5 +22,6 @@ lol brute force. Find the intended solution.
 Day 20 part 2:
 20b.rb ---  5.230s  33.0MB
 
-Day 21:
-Incomplete
+Day 24 part 2:
+- Too dependent on input data
+- Ugly hand-rolled tree pattern matching. Try building a matching language.
