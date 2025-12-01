@@ -7,18 +7,21 @@ ARGF.each_line do |line|
   dir = line[0]
   n = line[1..].to_i
 
-  # TODO: lol. figure out the analytical solution
-  n.times do
-    if dir == "L"
-      pos -= 1
-    else
-      pos += 1
-    end
+  full_rotations = n / 100
+  result += full_rotations
 
-    pos = pos % 100
+  n %= 100
 
-    result += 1 if pos == 0
+  if dir == "L"
+    n = -n
   end
+  
+  new_pos = pos + n
+  if pos != 0 && (new_pos <= 0 || new_pos >= 100)
+    result += 1
+  end
+
+  pos = new_pos % 100
 end
 
 puts result
