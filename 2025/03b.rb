@@ -1,15 +1,24 @@
 #!/usr/bin/env ruby
 
-def solve(cs, n, memo = {})
-  memo[[cs, n]] ||= (
-    return cs.chars.max if n == 1
+def solve(bank, n, memo = {})
+  memo[[bank, n]] ||= (
+    return "" if n == 0
 
-    opts = cs[0...-(n - 1)]
-    max = opts.chars.max
+    # All options for the next character to select.
+    prefix = if n > 1
+      # Anything past -(n-1) isn't possible, because we'll run out of characters.
+      bank[0...-(n - 1)]
+    else
+      bank
+    end
 
-    opts.chars.each_with_index.filter { |c, i| c == max }.map do |c, i|
-      "#{c}#{solve(cs[i+1...], n-1, memo)}"
+    # Search every max-valued possibility
+    max = prefix.chars.max
+    rest = prefix.chars.each_with_index.filter { |c, i| c == max }.map do |c, i|
+      solve(bank[i+1...], n-1, memo)
     end.max
+
+    max + rest
   )
 end
 
