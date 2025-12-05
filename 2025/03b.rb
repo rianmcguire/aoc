@@ -5,20 +5,13 @@ def solve(bank, n, memo = {})
     return "" if n == 0
 
     # All options for the next character to select.
-    prefix = if n > 1
-      # Anything past -(n-1) isn't possible, because we'll run out of characters.
-      bank[0...-(n - 1)]
-    else
-      bank
-    end
+    # Anything past -n isn't possible, because we'll run out of characters.
+    prefix = bank[0..-n]
 
-    # Search every max-valued possibility
-    max = prefix.chars.max
-    rest = prefix.chars.each_with_index.filter { |c, i| c == max }.map do |c, i|
-      solve(bank[i+1...], n-1, memo)
-    end.max
+    # Find the largest
+    max, i = prefix.chars.each_with_index.max_by { |c, i| c }
 
-    max + rest
+    max + solve(bank[i+1...], n-1, memo)
   )
 end
 
