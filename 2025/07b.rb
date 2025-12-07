@@ -3,8 +3,6 @@
 Pos = Struct.new(:x, :y) do
   def step(dir)
       case dir
-      when :n
-          Pos.new(x, y - 1)
       when :s
           Pos.new(x, y + 1)
       when :e
@@ -15,33 +13,30 @@ Pos = Struct.new(:x, :y) do
   end
 end
 
-GRID = ARGF.each_line.each_with_index.map do |line, y|
-  line.chomp.chars.each_with_index do |c, x|
-    if c == "S"
-      START = Pos.new(x, y)
-    end
-
-    c
+ROWS = []
+ARGF.each_line.each_with_index do |line, y|
+  if sx = line.index("S")
+    START = Pos.new(sx, y)
   end
+
+  ROWS << line.chomp.chars.each_with_index.filter { |c, x| c == "^" }.map { |c, x| Pos.new(x, y) }
 end
 
 def dfs(beam, memo = {})
   memo[beam] ||= (
     y = beam.y
-  
-    return 1 if y == GRID.length - 1
-    
-    splitters = GRID[y].each_with_index.filter { |c, x| c == "^" }.map { |c, x| Pos.new(x, y) }
-    splitter = splitters.find { |s| s == beam }
-    
-    beam = beam.step(:s)
-    
-    if splitter
-      [splitter.step(:w), splitter.step(:e)].sum do |b|
-        dfs(b, memo)
+
+    # Base case: we've reached the bottom
+    return 1 if y == ROWS.length - 1
+
+    if ROWS[y].include?(beam)
+      # The beam hit a splitter - search left and right
+      [beam.step(:w), beam.step(:e)].sum do |b|
+        dfs(b.step(:s), memo)
       end
     else
-      dfs(beam, memo)
+      # Beam continues straight
+      dfs(beam.step(:s), memo)
     end
   )
 end
