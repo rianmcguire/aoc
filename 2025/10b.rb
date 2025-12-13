@@ -2,24 +2,25 @@
 
 require "matrix"
 
-# n[0] * b[0, 0] + n[1] * b[1, 0] + ... = j[0]
+require 'bundler/inline'
+gemfile do
+  source 'https://rubygems.org'
+  gem 'opt-rb'
+  gem 'highs'
+end
 
 Light = Struct.new(:buttons, :joltage) do
   def fewest_presses
-    co = Matrix[
-      *joltage.each_with_index.map do |j, j_i|
-        buttons.map { |b| b[j_i] }
-      end
-    ]
+    # Throw a MILP solver at it
+    # TODO: find the search approach
+    prob = Opt::Problem.new
+    presses = buttons.length.times.map { |i| Opt::Integer.new(0...) }
+    joltage.each_with_index do |j, j_i|
+      prob.add(buttons.each_with_index.map { |button, b_i| presses[b_i] * button[j_i] }.reduce(:+) == j)
+    end
+    prob.minimize(presses.reduce(:+))
 
-    rhs = Vector[*joltage]
-
-    max = joltage.max
-
-    (0..max).to_a.repeated_permutation(buttons.length)
-      .filter { |presses| pp(presses); co * Vector[*presses] == rhs }
-      .map(&:sum)
-      .min
+    prob.solve[:objective].to_i
   end
 end
 
@@ -40,7 +41,6 @@ lights = ARGF.each_line.map do |line|
 end
 
 result = lights.sum do |l|
-  pp l
   l.fewest_presses
 end
 
