@@ -19,8 +19,6 @@ def dfs(source:, adjacent_fn:, target_fn:)
     end
 
     adjacent_fn.call(node).filter_map do |child|
-      next if path.include?(child)
-
       new_path = path.dup
       new_path << child
       stack.push([child, new_path])
