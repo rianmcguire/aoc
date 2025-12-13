@@ -14,28 +14,31 @@ Light = Struct.new(:buttons, :joltage) do
     # Throw a MILP solver at it
     # TODO: find the search approach
     prob = Opt::Problem.new
-    presses = buttons.length.times.map { |i| Opt::Integer.new(0...) }
-    joltage.each_with_index do |j, j_i|
-      prob.add(buttons.each_with_index.map { |button, b_i| presses[b_i] * button[j_i] }.reduce(:+) == j)
-    end
-    prob.minimize(presses.reduce(:+))
 
-    prob.solve[:objective].to_i
+    # Unknown variables: number of presses required for each button
+    presses = buttons.length.times.map { |i| Opt::Integer.new(0...) }
+
+    joltage.each_with_index do |j, j_i|
+      # Find the buttons that increment this joltage counter
+      presses_for_joltage = buttons.each_with_index.filter { |button, b_i| button.include?(j_i) }.map { |button, b_i| presses[b_i] }
+
+      # Their presses need to equal the required joltage
+      prob.add(presses_for_joltage.reduce(:+) == j)
+    end
+
+    # Solve, minimizing the number of presses
+    prob.minimize(presses.reduce(:+))
+    prob.solve
+
+    presses.map(&:value).sum
   end
 end
 
 lights = ARGF.each_line.map do |line|
   _, *buttons, joltage = line.chomp.split(" ")
 
+  buttons.map! { |s| s[1...-1].split(",").map(&:to_i) }
   joltage = joltage[1...-1].split(",").map(&:to_i)
-
-  buttons.map! do |button|
-    levels = Array.new(joltage.length, 0)
-    button[1...-1].split(",").map do |s|
-      levels[s.to_i] = 1
-    end
-    levels
-  end
 
   Light.new(buttons, joltage)
 end
