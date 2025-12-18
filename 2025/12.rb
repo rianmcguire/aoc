@@ -3,20 +3,22 @@
 Pos = Struct.new(:x, :y)
 Shape = Struct.new(:lines) do
   def orientations
-    s = self
-    result = [s]
-    3.times do
-      s = s.rotate
-      result << s
-    end
+    @orientations ||= (
+      s = self
+      result = [s]
+      3.times do
+        s = s.rotate
+        result << s
+      end
 
-    s = self.flip
-    3.times do
-      s = s.rotate
-      result << s
-    end
+      s = self.flip
+      3.times do
+        s = s.rotate
+        result << s
+      end
 
-    result.uniq
+      result.uniq
+    )
   end
 
   def flip
@@ -111,21 +113,20 @@ regions = regions.lines.map do |line|
 end
 
 def can_fit?(shapes, grid, counts)
-  if counts.all?(&:zero?)
-    return true
-  end
+  i = counts.find_index { |c| c > 0 }
 
-  # Try each remaining shape
-  counts.each_with_index.filter { |c, i| c > 0 }.any? do |count, i|
-    shape = shapes[i]
-    new_counts = counts.dup
-    new_counts[i] -= 1
+  # Are we done?
+  return true if i.nil?
 
-    shape.orientations.any? do |s|
-      grid.possible_locations(s).any? do |pos|
-        new_grid = grid.try_add(s, pos)
-        can_fit?(shapes, new_grid, new_counts) if new_grid
-      end
+  shape = shapes[i]
+  new_counts = counts.dup
+  new_counts[i] -= 1
+
+  shape.orientations.any? do |s|
+    grid.possible_locations(s).any? do |pos|
+      $evaluated += 1
+      new_grid = grid.try_add(s, pos)
+      can_fit?(shapes, new_grid, new_counts) if new_grid
     end
   end
 end
@@ -133,8 +134,11 @@ end
 result = regions.count do |region|
   pp region
 
+  $evaluated = 0
   grid = Grid.with_size(region.x, region.y)
   pp(can_fit?(shapes, grid, region.counts))
+
+  puts "Evaluated #{$evaluated}"
 end
 
 puts result
