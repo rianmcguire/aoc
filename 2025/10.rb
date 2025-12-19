@@ -5,7 +5,7 @@ Light = Struct.new(:goal, :buttons, :joltage) do
     # We only need to consider pressing each button once, as pressing twice is equivalent to not pressing
     n = 0
     loop do
-      return n if buttons.combination(n).any? { |bs| bs.sum == goal }
+      return n if buttons.combination(n).any? { |bs| bs.reduce(:^) == goal }
       n += 1
     end
   end
